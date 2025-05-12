@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Server configuration
   server: {
     host: '0.0.0.0',
     port: 5000,
@@ -14,6 +15,20 @@ export default defineConfig({
     ],
     hmr: {
       clientPort: 443
+    }
+  },
+  
+  // Build configuration
+  build: {
+    outDir: 'dist',
+    assetsInlineLimit: 4096, // 4kb - assets smaller than this will be inlined as base64
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor code into separate chunks for better caching
+          vendor: ['src/main.js']
+        }
+      }
     }
   }
 })
