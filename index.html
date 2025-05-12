@@ -4,18 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite Vanilla App</title>
+    <title>Google Maps Viewer</title>
   </head>
   <body>
-    <div id="app">
-      <h1>Hello World!</h1>
-      <div class="card">
-        <button id="counter" type="button">Count is 0</button>
-      </div>
-      <p class="read-the-docs">
-        Click on the Vite logo to learn more
-      </p>
-    </div>
+    <!-- The div element for the map -->
+    <div id="map"></div>
+    
+    <!-- Google Maps JavaScript API -->
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=initMap">
+    </script>
+    
+    <!-- Main application script -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
