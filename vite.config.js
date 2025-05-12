@@ -36,7 +36,10 @@ export default defineConfig(({ command, mode }) => {
     return {
       ...commonConfig,
       // Development-only settings
-      // (Any dev-specific settings would go here)
+      build: {
+        // Enable source maps for debugging in development
+        sourcemap: 'inline'
+      }
     }
   } 
   // Production build configuration
@@ -46,6 +49,8 @@ export default defineConfig(({ command, mode }) => {
       // Production-only settings
       build: {
         outDir: 'dist',
+        // Generate separate source maps for production debugging when needed
+        sourcemap: true,
         assetsInlineLimit: 4096, // 4kb - assets smaller than this will be inlined as base64
         rollupOptions: {
           output: {
