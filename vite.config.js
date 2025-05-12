@@ -1,5 +1,7 @@
 // vite.config.js
-export default {
+import { defineConfig } from 'vite'
+
+export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5000,
@@ -14,4 +16,4 @@ export default {
       clientPort: 443
     }
   }
-}
+})
