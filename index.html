@@ -13,10 +13,10 @@
     <!-- Main application script -->
     <script type="module" src="/src/main.js"></script>
     
-    <!-- Google Maps JavaScript API -->
+    <!-- Google Maps JavaScript API with loading=async -->
     <!-- The API key is injected by the Vite plugin -->
-    <script async defer
-      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=marker,places&v=weekly&callback=initMap">
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=places&callback=initMap&loading=async">
     </script>
   </body>
 </html>
