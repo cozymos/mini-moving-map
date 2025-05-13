@@ -1,14 +1,8 @@
 // vite.config.js
 import { defineConfig } from 'vite'
-import envPlugin from './vite-env-plugin.js'
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  // Use custom plugins
-  plugins: [
-    envPlugin()
-  ],
-  
+export default defineConfig({  
   // Server configuration
   server: {
     host: '0.0.0.0',
