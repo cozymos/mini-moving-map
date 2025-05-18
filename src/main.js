@@ -1,11 +1,18 @@
 import "./style.css";
 import { getLandmarkData } from './services.js';
+import { initAuth, isAuthEnabled } from './auth.js';
 
 // Get the Google Maps API key from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const default_radius = 10000;
 const default_zoom = 12;
+
+// Authentication state
+let auth = {
+  isAuthenticated: false,
+  user: null
+};
 
 // Track active landmark markers for cleanup
 let activeMarkers = [];
@@ -321,7 +328,9 @@ function clearExistingMarkers() {
 function loadGoogleMapsAPI() {
   // Create script element
   const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&loading=async`;
+  
+  // Add map ID for advanced markers
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&loading=async&libraries=marker`;
 
   // Make initMap available globally for the callback
   window.initMap = initMap;
@@ -331,7 +340,22 @@ function loadGoogleMapsAPI() {
 }
 
 // Initialize the app when DOM is loaded
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   console.log("Google Maps Viewer loading...");
+  
+  // Initialize auth if needed
+  if (isAuthEnabled()) {
+    try {
+      auth = await initAuth();
+      console.log("Auth status:", auth.isAuthenticated ? "Authenticated" : "Not authenticated");
+    } catch (error) {
+      console.error("Auth initialization error:", error);
+    }
+  } else {
+    console.log("Auth is disabled for local development");
+    auth.isAuthenticated = true; // Auto-authenticated in local development
+  }
+  
+  // Load Google Maps API
   loadGoogleMapsAPI();
 });
