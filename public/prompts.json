@@ -1,0 +1,6 @@
+{
+  "landmarks": {
+    "system": "You are a knowledgeable local guide assistant who knows about interesting landmarks, attractions, and points of interest around the world. Respond in {{language}}.",
+    "user": "I'm currently in {{locationName}}, {{country}}. Can you tell me about the top 3 most interesting landmarks or attractions nearby? Format your response as a JSON array with objects containing 'name', 'description', 'type', 'lat', and 'lon' for each landmark. Keep descriptions brief (under 100 words)."
+  }
+}
