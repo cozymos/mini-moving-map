@@ -65,9 +65,13 @@ export async function getLocationName(latitude, longitude) {
 // Get landmarks near location using OpenAI API
 export async function getLandmarksWithGPT(locationData, language = 'en') {
   try {
+    console.log('OpenAI API Key available:', !!OPENAI_API_KEY);
+    
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key is not configured');
     }
+    
+    console.log('Getting prompt with location data:', locationData);
     
     // Get the prompt for landmarks
     const prompt = await getPrompt('landmarks', {
@@ -76,7 +80,10 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
       language
     });
     
+    console.log('Using prompts:', prompt);
+    
     // Call the OpenAI API
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -93,12 +100,23 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
       })
     });
     
+    console.log('OpenAI API response status:', response.status);
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI API error: ${response.status} ${JSON.stringify(errorData)}`);
+      const errorText = await response.text();
+      console.error('OpenAI API error response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`OpenAI API error: ${response.status} ${JSON.stringify(errorData)}`);
+      } catch (e) {
+        throw new Error(`OpenAI API error: ${response.status} ${errorText.substring(0, 100)}`);
+      }
     }
     
     const data = await response.json();
+    console.log('OpenAI API response data:', data);
+    
     const content = data.choices[0]?.message?.content;
     
     if (!content) {
@@ -106,18 +124,44 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
     }
     
     // Parse the JSON response
-    const landmarks = JSON.parse(content);
+    let landmarks;
+    try {
+      landmarks = JSON.parse(content);
+    } catch (e) {
+      console.error('Error parsing JSON response:', e);
+      console.log('Raw content:', content);
+      throw new Error('Invalid JSON response from OpenAI');
+    }
+    
+    console.log('Parsed landmarks data:', landmarks);
+    
+    // Check if landmarks has the expected structure
+    if (!landmarks.landmarks || !Array.isArray(landmarks.landmarks)) {
+      // If not, try to create a compatible structure
+      if (Array.isArray(landmarks)) {
+        landmarks = { landmarks: landmarks };
+      } else {
+        // Create a default structure with empty landmarks
+        landmarks = { landmarks: [] };
+      }
+    }
     
     // Ensure we're using 'lon' consistently (API might return 'lng' in some cases)
-    if (landmarks.landmarks) {
-      landmarks.landmarks = landmarks.landmarks.map(landmark => {
-        if (landmark.lng !== undefined && landmark.lon === undefined) {
-          landmark.lon = landmark.lng;
-          delete landmark.lng;
-        }
-        return landmark;
-      });
-    }
+    landmarks.landmarks = landmarks.landmarks.map(landmark => {
+      // If latitude/longitude not provided, generate random coordinates near the center
+      if (landmark.lat === undefined) {
+        landmark.lat = parseFloat((Math.random() * 0.01 - 0.005).toFixed(6));
+      }
+      
+      if (landmark.lon === undefined && landmark.lng !== undefined) {
+        landmark.lon = landmark.lng;
+        delete landmark.lng;
+      } else if (landmark.lon === undefined) {
+        landmark.lon = parseFloat((Math.random() * 0.01 - 0.005).toFixed(6));
+      }
+      
+      return landmark;
+    });
     
     return landmarks;
   } catch (error) {

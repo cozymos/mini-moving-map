@@ -158,16 +158,26 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
   // Clear existing markers
   clearExistingMarkers();
   
-  // Display the landmarks
-  if (landmarksData && Array.isArray(landmarksData.landmarks)) {
-    landmarksData.landmarks.forEach((landmark) => {
+  // Get the map center for placing landmarks if they don't have precise coordinates
+  const center = map.getCenter();
+  const mapCenter = {
+    lat: center.lat(),
+    lng: center.lng()
+  };
+  
+  console.log('Displaying landmarks:', landmarksData);
+  
+  // Check if we have landmarks data in the expected format
+  if (landmarksData && landmarksData.landmarks && Array.isArray(landmarksData.landmarks)) {
+    // Place landmarks around the center point in a circle if coordinates are missing
+    landmarksData.landmarks.forEach((landmark, index) => {
       // Create an info window for the landmark
       const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="max-width: 250px;">
             <h3>${landmark.name}</h3>
-            <p><strong>Type:</strong> ${landmark.type}</p>
-            <p>${landmark.description}</p>
+            <p><strong>Type:</strong> ${landmark.type || 'Point of Interest'}</p>
+            <p>${landmark.description || 'No description available.'}</p>
           </div>
         `,
       });
@@ -175,11 +185,25 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
       // Keep track of info windows
       activeInfoWindows.push(infoWindow);
       
-      // Create a marker for each landmark using the lat/lon from the API response
-      const position = {
-        lat: landmark.lat,
-        lng: landmark.lon
-      };
+      // Use available coordinates or create position around center
+      let position;
+      
+      if (landmark.lat !== undefined && (landmark.lon !== undefined || landmark.lng !== undefined)) {
+        position = {
+          lat: landmark.lat,
+          lng: landmark.lon || landmark.lng
+        };
+      } else {
+        // Place in a circle around the center
+        const angle = (index / landmarksData.landmarks.length) * Math.PI * 2;
+        const radius = 0.01; // Approximately 1km
+        position = {
+          lat: mapCenter.lat + Math.cos(angle) * radius,
+          lng: mapCenter.lng + Math.sin(angle) * radius
+        };
+      }
+      
+      console.log(`Placing landmark "${landmark.name}" at position:`, position);
       
       let marker;
       
@@ -200,7 +224,10 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
         marker.addListener("click", () => {
           // Close any open info windows
           activeInfoWindows.forEach(window => window.close());
-          infoWindow.open(map, marker);
+          infoWindow.open({
+            anchor: marker,
+            map: map
+          });
         });
       } else {
         // Fallback to standard marker
@@ -222,9 +249,56 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
         });
       }
       
+      // Open first landmark info window by default
+      if (index === 0) {
+        setTimeout(() => {
+          infoWindow.open({
+            anchor: marker,
+            map: map
+          });
+        }, 1000);
+      }
+      
       // Keep track of markers
       activeMarkers.push(marker);
     });
+  } else {
+    console.error('Invalid landmarks data format:', landmarksData);
+    // Create a fallback marker at the center to show something happened
+    const noResultsMarker = document.createElement('div');
+    noResultsMarker.innerHTML = '❓';
+    noResultsMarker.style.fontSize = '24px';
+    
+    const marker = AdvancedMarkerElement ? 
+      new AdvancedMarkerElement({
+        position: mapCenter,
+        map: map,
+        title: 'No landmarks found',
+        content: noResultsMarker
+      }) : 
+      new google.maps.Marker({
+        position: mapCenter,
+        map: map,
+        title: 'No landmarks found',
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        }
+      });
+    
+    activeMarkers.push(marker);
+    
+    // Create an info window to explain no results
+    const infoWindow = new google.maps.InfoWindow({
+      content: `
+        <div style="max-width: 250px;">
+          <h3>No landmarks found</h3>
+          <p>Could not find landmark information for this location.</p>
+        </div>
+      `,
+    });
+    
+    infoWindow.open(map, marker);
+    activeInfoWindows.push(infoWindow);
   }
 }
 
