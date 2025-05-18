@@ -1,4 +1,5 @@
 import "./style.css";
+import { getLandmarkData } from './services.js';
 
 // Get the Google Maps API key from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -6,12 +7,16 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const default_radius = 10000;
 const default_zoom = 12;
 
+// Track active landmark markers for cleanup
+let activeMarkers = [];
+let activeInfoWindows = [];
+
 // Map initialization function - called by Google Maps API once loaded
 async function initMap() {
   // Default coordinates (San Francisco)
   const defaultLocation = { lat: 37.7749, lng: -122.4194 };
-  const {ColorScheme} = await google.maps.importLibrary("core")
-
+  const {ColorScheme} = await google.maps.importLibrary("core");
+  const {AdvancedMarkerElement} = await google.maps.importLibrary("marker");
 
   // Create the map instance with a modern and clean style
   const map = new google.maps.Map(document.getElementById("map"), {
@@ -52,11 +57,20 @@ async function initMap() {
     ],
   });
 
-  // Try to get user's location if they allow geolocation
+  // Add location control
+  addLocationControl(map, AdvancedMarkerElement);
+  
+  // Add landmarks search button
+  addLandmarksControl(map, AdvancedMarkerElement);
+}
+
+// Add the location control to the map
+function addLocationControl(map, AdvancedMarkerElement) {
   if (navigator.geolocation) {
     const locationButton = document.createElement("button");
     locationButton.textContent = "📍";
     locationButton.classList.add("control-button");
+    locationButton.title = "Find my location";
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
 
     locationButton.addEventListener("click", () => {
@@ -68,11 +82,10 @@ async function initMap() {
             lng: position.coords.longitude,
           };
 
-          // Add a marker at user's location - using classic marker as fallback
-          // if AdvancedMarkerElement is not available
-          if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-            new google.maps.marker.AdvancedMarkerElement({
-              position: userLocation,
+          // Add a marker at user's location - using AdvancedMarkerElement if available
+          if (AdvancedMarkerElement) {
+            new AdvancedMarkerElement({
+              position: pos,
               map: map,
               title: "Your Location",
             });
@@ -83,9 +96,9 @@ async function initMap() {
               map: map,
               title: "Your Location",
             });
-
-            map.setCenter(pos);
           }
+
+          map.setCenter(pos);
         },
         () => {
           console.log(
@@ -99,6 +112,135 @@ async function initMap() {
       "Geolocation is not supported by this browser. Using default location."
     );
   }
+}
+
+// Add landmarks search button
+function addLandmarksControl(map, AdvancedMarkerElement) {
+  const landmarksButton = document.createElement("button");
+  landmarksButton.textContent = "🏛️";
+  landmarksButton.classList.add("control-button");
+  landmarksButton.title = "Find landmarks";
+  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(landmarksButton);
+
+  landmarksButton.addEventListener("click", async () => {
+    try {
+      // Show loading indicator or disable button
+      landmarksButton.disabled = true;
+      landmarksButton.textContent = "⏳";
+      
+      const center = map.getCenter();
+      const lat = center.lat();
+      const lng = center.lng();
+      
+      // Get landmarks data
+      const language = 'en'; // Default to English
+      const landmarksData = await getLandmarkData(lat, lng, language);
+      
+      // Display landmarks on the map
+      displayLandmarks(map, landmarksData, AdvancedMarkerElement);
+      
+      // Reset button
+      landmarksButton.disabled = false;
+      landmarksButton.textContent = "🏛️";
+    } catch (error) {
+      console.error("Error finding landmarks:", error);
+      alert("Error finding landmarks. Please try again later.");
+      
+      // Reset button
+      landmarksButton.disabled = false;
+      landmarksButton.textContent = "🏛️";
+    }
+  });
+}
+
+// Display landmarks on the map
+function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
+  // Clear existing markers
+  clearExistingMarkers();
+  
+  // Display the landmarks
+  if (landmarksData && Array.isArray(landmarksData.landmarks)) {
+    landmarksData.landmarks.forEach((landmark) => {
+      // Create an info window for the landmark
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="max-width: 250px;">
+            <h3>${landmark.name}</h3>
+            <p><strong>Type:</strong> ${landmark.type}</p>
+            <p>${landmark.description}</p>
+          </div>
+        `,
+      });
+      
+      // Keep track of info windows
+      activeInfoWindows.push(infoWindow);
+      
+      // Create a marker for each landmark using the lat/lon from the API response
+      const position = {
+        lat: landmark.lat,
+        lng: landmark.lon
+      };
+      
+      let marker;
+      
+      // Use AdvancedMarkerElement if available
+      if (AdvancedMarkerElement) {
+        const markerContent = document.createElement('div');
+        markerContent.innerHTML = '🏛️';
+        markerContent.style.fontSize = '24px';
+        
+        marker = new AdvancedMarkerElement({
+          position: position,
+          map: map,
+          title: landmark.name,
+          content: markerContent
+        });
+        
+        // Add click listener to open info window
+        marker.addListener("click", () => {
+          // Close any open info windows
+          activeInfoWindows.forEach(window => window.close());
+          infoWindow.open(map, marker);
+        });
+      } else {
+        // Fallback to standard marker
+        marker = new google.maps.Marker({
+          position: position,
+          map: map,
+          title: landmark.name,
+          animation: google.maps.Animation.DROP,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+          }
+        });
+        
+        // Add click listener to open info window
+        marker.addListener("click", () => {
+          // Close any open info windows
+          activeInfoWindows.forEach(window => window.close());
+          infoWindow.open(map, marker);
+        });
+      }
+      
+      // Keep track of markers
+      activeMarkers.push(marker);
+    });
+  }
+}
+
+// Clear existing markers and info windows
+function clearExistingMarkers() {
+  // Clear markers
+  activeMarkers.forEach(marker => {
+    marker.map = null;
+  });
+  activeMarkers = [];
+  
+  // Close and clear info windows
+  activeInfoWindows.forEach(window => {
+    window.close();
+  });
+  activeInfoWindows = [];
 }
 
 // Load Google Maps API dynamically
