@@ -23,12 +23,6 @@ A minimalist full-screen Google Maps application built with vanilla JavaScript a
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js installed on your machine
-- A Google Maps API key with Maps JavaScript API and Geocoding API enabled
-- An OpenAI API key
-
 ### Installation
 
 ```bash
@@ -49,7 +43,7 @@ npm run dev
 
 The application requires the following environment variables:
 
-- `VITE_GOOGLE_MAPS_API_KEY` - Your Google Maps API key (with Geocoding API enabled)
+- `VITE_GOOGLE_MAPS_API_KEY` - Your Google Maps API key
 - `VITE_OPENAI_API_KEY` - Your OpenAI API key
 
 ## Usage

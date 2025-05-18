@@ -65,14 +65,10 @@ export async function getLocationName(latitude, longitude) {
 // Get landmarks near location using OpenAI API
 export async function getLandmarksWithGPT(locationData, language = 'en') {
   try {
-    console.log('OpenAI API Key available:', !!OPENAI_API_KEY);
-    
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key is not configured');
     }
-    
-    console.log('Getting prompt with location data:', locationData);
-    
+        
     // Get the prompt for landmarks
     const prompt = await getPrompt('landmarks', {
       locationName: locationData.locationName,
@@ -83,7 +79,6 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
     console.log('Using prompts:', prompt);
     
     // Call the OpenAI API
-    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -99,8 +94,6 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
         response_format: { type: 'json_object' }
       })
     });
-    
-    console.log('OpenAI API response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -134,7 +127,7 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
     }
     
     console.log('Parsed landmarks data:', landmarks);
-    
+        
     // Check if landmarks has the expected structure
     if (!landmarks.landmarks || !Array.isArray(landmarks.landmarks)) {
       // If not, try to create a compatible structure

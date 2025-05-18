@@ -1,17 +1,19 @@
-import "./style.css";
 import { getLandmarkData } from './services.js';
-import { initAuth, isAuthEnabled } from './auth.js';
+import { initAuth, isAuthEnabled } from "./auth.js";
+
+// DOM Elements
+const mapElement = document.getElementById("map");
 
 // Get the Google Maps API key from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
+let map = null;
 const default_radius = 10000;
 const default_zoom = 12;
 
 // Authentication state
 let auth = {
   isAuthenticated: false,
-  user: null
+  user: null,
 };
 
 // Track active landmark markers for cleanup
@@ -22,11 +24,10 @@ let activeInfoWindows = [];
 async function initMap() {
   // Default coordinates (San Francisco)
   const defaultLocation = { lat: 37.7749, lng: -122.4194 };
-  const {ColorScheme} = await google.maps.importLibrary("core");
-  const {AdvancedMarkerElement} = await google.maps.importLibrary("marker");
+  const { ColorScheme } = await google.maps.importLibrary("core");
 
   // Create the map instance with a modern and clean style
-  const map = new google.maps.Map(document.getElementById("map"), {
+  map = new google.maps.Map(mapElement, {
     center: defaultLocation,
     zoom: default_zoom,
     colorScheme: ColorScheme.FOLLOW_SYSTEM,
@@ -40,7 +41,7 @@ async function initMap() {
     zoomControl: true,
     mapTypeControl: true,
     mapTypeControlOptions: {
-      //style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+      style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
       position: google.maps.ControlPosition.TOP_RIGHT,
       // default mapTypeIds: ["roadmap", "terrain", "satellite", "hybrid"],
     },
@@ -49,30 +50,16 @@ async function initMap() {
     scaleControl: true,
     rotateControl: true,
 
-    // Style the map with a clean, minimal look
-    styles: [
-      {
-        featureType: "poi",
-        elementType: "labels",
-        stylers: [{ visibility: "off" }],
-      },
-      {
-        featureType: "transit",
-        elementType: "labels",
-        stylers: [{ visibility: "off" }],
-      },
-    ],
+    mapId: "f61a40c10abb6e5a61bdfb74", // Adding a map ID for Advanced Markers
   });
 
-  // Add location control
-  addLocationControl(map, AdvancedMarkerElement);
-  
-  // Add landmarks search button
-  addLandmarksControl(map, AdvancedMarkerElement);
+  // Set up custom controls
+  addLocationControl();
+  addLandmarksControl();
 }
 
 // Add the location control to the map
-function addLocationControl(map, AdvancedMarkerElement) {
+function addLocationControl() {
   if (navigator.geolocation) {
     const locationButton = document.createElement("button");
     locationButton.textContent = "📍";
@@ -83,29 +70,22 @@ function addLocationControl(map, AdvancedMarkerElement) {
     locationButton.addEventListener("click", () => {
       // Try HTML5 geolocation
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const pos = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
 
           // Add a marker at user's location - using AdvancedMarkerElement if available
-          if (AdvancedMarkerElement) {
-            new AdvancedMarkerElement({
-              position: pos,
-              map: map,
-              title: "Your Location",
-            });
-          } else {
-            // Fallback to standard marker
-            new google.maps.Marker({
-              position: pos,
-              map: map,
-              title: "Your Location",
-            });
-          }
+          const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+          new AdvancedMarkerElement({
+            position: pos,
+            map: map,
+            title: "Your Location",
+          });
 
           map.setCenter(pos);
+          map.setZoom(default_zoom);
         },
         () => {
           console.log(
@@ -122,7 +102,7 @@ function addLocationControl(map, AdvancedMarkerElement) {
 }
 
 // Add landmarks search button
-function addLandmarksControl(map, AdvancedMarkerElement) {
+function addLandmarksControl() {
   const landmarksButton = document.createElement("button");
   landmarksButton.textContent = "🏛️";
   landmarksButton.classList.add("control-button");
@@ -144,7 +124,7 @@ function addLandmarksControl(map, AdvancedMarkerElement) {
       const landmarksData = await getLandmarkData(lat, lng, language);
       
       // Display landmarks on the map
-      displayLandmarks(map, landmarksData, AdvancedMarkerElement);
+      displayLandmarks(landmarksData);
       
       // Reset button
       landmarksButton.disabled = false;
@@ -161,7 +141,9 @@ function addLandmarksControl(map, AdvancedMarkerElement) {
 }
 
 // Display landmarks on the map
-function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
+async function displayLandmarks(landmarksData) {
+  const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
   // Clear existing markers
   clearExistingMarkers();
   
@@ -171,9 +153,7 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
     lat: center.lat(),
     lng: center.lng()
   };
-  
-  console.log('Displaying landmarks:', landmarksData);
-  
+    
   // Check if we have landmarks data in the expected format
   if (landmarksData && landmarksData.landmarks && Array.isArray(landmarksData.landmarks)) {
     // Place landmarks around the center point in a circle if coordinates are missing
@@ -213,7 +193,6 @@ function displayLandmarks(map, landmarksData, AdvancedMarkerElement) {
       console.log(`Placing landmark "${landmark.name}" at position:`, position);
       
       let marker;
-      
       // Use AdvancedMarkerElement if available
       if (AdvancedMarkerElement) {
         const markerContent = document.createElement('div');
@@ -323,14 +302,11 @@ function clearExistingMarkers() {
   });
   activeInfoWindows = [];
 }
-
 // Load Google Maps API dynamically
 function loadGoogleMapsAPI() {
   // Create script element
   const script = document.createElement("script");
-  
-  // Add map ID for advanced markers
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&loading=async&libraries=marker`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&loading=async`;
 
   // Make initMap available globally for the callback
   window.initMap = initMap;
@@ -342,12 +318,20 @@ function loadGoogleMapsAPI() {
 // Initialize the app when DOM is loaded
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("Google Maps Viewer loading...");
-  
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.error("Google Maps API key not found.");
+    return;
+  }
+
   // Initialize auth if needed
   if (isAuthEnabled()) {
     try {
       auth = await initAuth();
-      console.log("Auth status:", auth.isAuthenticated ? "Authenticated" : "Not authenticated");
+      console.log(
+        "Auth status:",
+        auth.isAuthenticated ? "Authenticated" : "Not authenticated"
+      );
     } catch (error) {
       console.error("Auth initialization error:", error);
     }
@@ -355,7 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Auth is disabled for local development");
     auth.isAuthenticated = true; // Auto-authenticated in local development
   }
-  
+
   // Load Google Maps API
   loadGoogleMapsAPI();
 });
