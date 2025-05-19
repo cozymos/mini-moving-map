@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo "Starting Vite development server..."
-npx vite --host --force
+echo "Starting Vite dev server..."
+npx vite --host --force --open

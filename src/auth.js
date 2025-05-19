@@ -2,9 +2,10 @@
 // This allows the app to work locally without Replit Auth
 
 // Check if running locally (localhost)
-const isLocalDevelopment = window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1' ||
-                          window.location.hostname.includes('replit.dev');
+const isLocalDevelopment =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.includes('replit.dev');
 
 /**
  * Initialize authentication - bypassed in local development
@@ -18,7 +19,7 @@ export async function initAuth() {
       user: {
         id: 'local-dev-user',
         name: 'Local Developer',
-      }
+      },
     };
   }
 
@@ -26,27 +27,27 @@ export async function initAuth() {
   try {
     // Check if user is logged in
     const response = await fetch('/api/auth/user', {
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (response.ok) {
       const user = await response.json();
       return {
         isAuthenticated: true,
-        user
+        user,
       };
     }
-    
+
     return {
       isAuthenticated: false,
-      user: null
+      user: null,
     };
   } catch (error) {
     console.error('Auth error:', error);
     return {
       isAuthenticated: false,
       user: null,
-      error
+      error,
     };
   }
 }
@@ -60,7 +61,7 @@ export function login() {
     window.location.reload();
     return;
   }
-  
+
   // Redirect to Replit login
   window.location.href = '/api/login';
 }
@@ -74,7 +75,7 @@ export function logout() {
     window.location.reload();
     return;
   }
-  
+
   // Redirect to Replit logout
   window.location.href = '/api/logout';
 }
@@ -83,5 +84,7 @@ export function logout() {
  * Check if auth is enabled for the current environment
  */
 export function isAuthEnabled() {
-  return !isLocalDevelopment || import.meta.env.VITE_ENABLE_AUTH_IN_DEV === 'true';
+  return (
+    !isLocalDevelopment || import.meta.env.VITE_ENABLE_AUTH_IN_DEV === 'true'
+  );
 }

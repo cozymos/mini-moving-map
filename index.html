@@ -1,15 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Google Maps Viewer</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="stylesheet" href="/src/style.css">
-</head>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
   <body>
+    <!-- Map container -->
     <div id="map"></div>
-    
+
+    <!-- Custom Controls -->
+    <button id="my-location" class="control-button" title="My Location">
+      📍
+    </button>
+    <button
+      id="search-landmarks"
+      class="control-button"
+      title="Search Landmarks"
+    >
+      🏛️
+    </button>
+
+    <!-- Loading Indicator -->
+    <div id="loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading map...</div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="hidden"></div>
+
     <!-- Main application script - this will load Google Maps API dynamically -->
     <script type="module" src="/src/main.js"></script>
   </body>
