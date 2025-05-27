@@ -1,124 +1,28 @@
-import { getPrompt } from './utils.js';
+import { getLocationName } from './gmap.js';
+import { isTestMode, getPrompt, getConfig } from './utils.js';
 
-// Get the API keys from environment variables
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
-/**
- * Get country information for the specified coordinates using Geocoding API
- * @param {number} latitude - The latitude
- * @param {number} longitude - The longitude
- * @returns {Promise<Object>} - Promise that resolves to the country information
- */
-export async function getCountryFromCoordinates(latitude, longitude) {
-  try {
-    // Construct the Geocoding API URL
-    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&result_type=country`;
-
-    // Make the request
-    const response = await fetch(geocodingUrl);
-
-    if (!response.ok) {
-      throw new Error(`Geocoding API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      console.log('No country found in geocoding results:', data);
-      return null;
-    }
-
-    // Extract the country information from the first result
-    const country = {
-      name: null,
-      code: null,
-    };
-
-    // Get country name from formatted address
-    country.name = data.results[0].formatted_address;
-
-    // Extract country code from address components
-    const addressComponents = data.results[0].address_components;
-    for (const component of addressComponents) {
-      if (component.types.includes('country')) {
-        country.code = component.short_name;
-        if (!country.name) {
-          country.name = component.long_name;
-        }
-        break;
-      }
-    }
-
-    console.log(`Geocoding found country: ${country.name} (${country.code})`);
-    return country;
-  } catch (error) {
-    console.error('Error getting country from coordinates:', error);
-    return null;
-  }
-}
-
-// Get location name from coordinates using Google Geocoding API
-export async function getLocationName(latitude, longitude) {
-  try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch location name');
-    }
-
-    const data = await response.json();
-
-    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      throw new Error('No location data found');
-    }
-
-    // Find the most appropriate result (locality or neighborhood)
-    let locationName = '';
-    let country = '';
-
-    // Try to find a locality or administrative area
-    for (const result of data.results) {
-      const types = result.types || [];
-      if (types.includes('locality') || types.includes('political')) {
-        locationName = result.formatted_address.split(',')[0].trim();
-      }
-
-      // Extract country from address components
-      const addressComponents = result.address_components || [];
-      for (const component of addressComponents) {
-        const componentTypes = component.types || [];
-        if (componentTypes.includes('country')) {
-          country = component.long_name;
-          break;
-        }
-      }
-
-      if (locationName && country) break;
-    }
-
-    // If no specific locality found, use the first result
-    if (!locationName && data.results[0]) {
-      locationName = data.results[0].formatted_address.split(',')[0].trim();
-    }
-
-    // Default country if not found
-    if (!country) {
-      country = 'Unknown';
-    }
-
-    return { locationName, country };
-  } catch (error) {
-    console.error('Error getting location name:', error);
-    throw error;
-  }
-}
+// Rate limiting variables
+let lastRequestTime = 0;
+const REQUEST_THROTTLE_MS = 100; // Min time between requests
 
 // Get landmarks near location using OpenAI API
 export async function getLandmarksWithGPT(locationData, language = 'en') {
   try {
+    if (isTestMode()) {
+      const config = await getConfig();
+      if (config) {
+        return config.test_mode;
+      }
+    }
+
+    // Check if we should throttle based on rate limits
+    if (shouldThrottleRequest()) {
+      console.log('Throttling request...');
+      await waitForThrottle();
+    }
+
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key is not configured');
     }
@@ -130,7 +34,7 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
       language,
     });
 
-    console.log('Using prompts:', prompt);
+    console.log('Prompting:', prompt);
 
     // Call the OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -160,13 +64,14 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
         );
       } catch (e) {
         throw new Error(
-          `OpenAI API error: ${response.status} ${errorText.substring(0, 100)}`
+          `OpenAI API error: ${response.status} ${errorText.substring(0, 100)}`,
+          e
         );
       }
     }
 
     const data = await response.json();
-    console.log('OpenAI API response data:', data);
+    console.log('OpenAI resp:', data);
 
     const content = data.choices[0]?.message?.content;
 
@@ -180,11 +85,11 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
       landmarks = JSON.parse(content);
     } catch (e) {
       console.error('Error parsing JSON response:', e);
-      console.log('Raw content:', content);
+      console.error('content:', content);
       throw new Error('Invalid JSON response from OpenAI');
     }
 
-    console.log('Parsed landmarks data:', landmarks);
+    console.log('Parsed data:', landmarks);
 
     // Check if landmarks has the expected structure
     if (!landmarks.landmarks || !Array.isArray(landmarks.landmarks)) {
@@ -254,7 +159,7 @@ export async function getWikiImageURL(landmarkName) {
     const searchData = await searchResponse.json();
 
     if (!searchData.query.search.length) {
-      console.log(`No Wiki page found for: ${landmarkName}`);
+      console.warn(`No Wiki page found for: ${landmarkName}`);
       return null;
     }
 
@@ -263,7 +168,7 @@ export async function getWikiImageURL(landmarkName) {
     const encodedTitle = encodeURIComponent(pageTitle);
 
     // First try to get the thumbnail image
-    const thumbnailUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodedTitle}&prop=pageimages&format=json&pithumbsize=300&origin=*`;
+    const thumbnailUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodedTitle}&prop=pageimages&format=json&pithumbsize=500&origin=*`;
 
     const thumbnailResponse = await fetch(thumbnailUrl);
     const thumbnailData = await thumbnailResponse.json();
@@ -292,12 +197,11 @@ export async function getWikiImageURL(landmarkName) {
     const pageId = Object.keys(pages)[0];
 
     if (!pages[pageId].images || pages[pageId].images.length === 0) {
-      console.log(`No Wiki images found for: ${landmarkName}`);
+      console.warn(`No Wiki images found for: ${landmarkName}`);
       return null;
     }
 
     // Find a suitable image (avoiding SVG and icons)
-    let imageName = '';
     let possibleImages = [];
 
     // First, collect all potential good images
@@ -396,4 +300,30 @@ export async function getWikiImageURL(landmarkName) {
     console.error(`Error fetching Wiki image for ${landmarkName}:`, error);
     return null;
   }
+}
+
+/**
+ * Check if we should throttle our requests
+ * @returns {boolean} True if we should wait, false if we can proceed
+ */
+function shouldThrottleRequest() {
+  const now = Date.now();
+  if (now - lastRequestTime < REQUEST_THROTTLE_MS) {
+    return true;
+  }
+  lastRequestTime = now;
+  return false;
+}
+
+/**
+ * Wait for the throttle period
+ * @returns {Promise} A promise that resolves after waiting
+ */
+function waitForThrottle() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      lastRequestTime = Date.now();
+      resolve();
+    }, REQUEST_THROTTLE_MS);
+  });
 }

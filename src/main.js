@@ -1,31 +1,27 @@
 /* eslint-disable no-undef */
-import { getLandmarkData } from './services.js';
 import { initAuth, isAuthEnabled } from './auth.js';
+import { initSearch } from './search.js';
 
 // DOM Elements
 const mapElement = document.getElementById('map');
 const myLocationButton = document.getElementById('my-location');
-const searchLandmarksButton = document.getElementById('search-landmarks');
+const searchSideBar = document.getElementById('search-bar-container');
+const landmarkSidebar = document.getElementById('landmarks-sidebar');
 const loadingElement = document.getElementById('loading');
 const errorElement = document.getElementById('error-message');
 
 // Get the Google Maps API key from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const default_radius = 10000;
 const default_zoom = 12;
 
 // Map instance
-let map = null;
+let map;
 
 // Authentication state
 let auth = {
   isAuthenticated: false,
   user: null,
 };
-
-// Track active landmark markers for cleanup
-let activeMarkers = [];
-let activeInfoWindows = [];
 
 // Map initialization function - called by Google Maps API once loaded
 async function initMap() {
@@ -75,18 +71,11 @@ async function initMap() {
   window.mapInstance = map;
 
   // Set up custom controls
-  setupControls();
+  setupLocationControl();
+  initSearch();
 
   // Hide loading indicator
   setLoading(false);
-}
-
-/**
- * Set up the custom controls
- */
-function setupControls() {
-  setupLocationControl();
-  setupLandmarkSearch();
 }
 
 /**
@@ -94,250 +83,74 @@ function setupControls() {
  */
 function setupLocationControl() {
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(myLocationButton);
-  myLocationButton.addEventListener('click', async () => {
-      // Show loading indicator
-      setLoading(true);
-
-      // Try HTML5 geolocation
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const pos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-
-          // Add a marker at user's location - using AdvancedMarkerElement if available
-          const { AdvancedMarkerElement } = await google.maps.importLibrary(
-            'marker'
-          );
-          new AdvancedMarkerElement({
-            position: pos,
-            map: map,
-            title: 'Your Location',
-          });
-
-          map.setCenter(pos);
-          map.setZoom(default_zoom);
-
-          setLoading(false);
-        },
-        () => {
-          console.log(
-            'Geolocation permission denied or failed. Using default location.'
-          );
-        }
-      );
-    });
-
+  myLocationButton.addEventListener('click', () => {
+    getUserLocation();
+  });
 }
 
 /**
- * Set up landmark search control
+ * Create a custom element for user location marker
+ * @returns {HTMLElement} The user location marker element
  */
-function setupLandmarkSearch() {
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
-    searchLandmarksButton
-  );
-  searchLandmarksButton.addEventListener('click', async () => {
-    try {
-      // Show loading indicator
-      setLoading(true);
-  
-      const center = map.getCenter();
-      const lat = center.lat();
-      const lng = center.lng();
-
-      // Get landmarks data
-      const language = 'en'; // Default to English
-      const landmarksData = await getLandmarkData(lat, lng, language);
-      setLoading(false);
-
-      // Display landmarks on the map
-      displayLandmarks(landmarksData);
-
-    } catch (error) {
-      console.error('Error finding landmarks:', error);
-      handleError('Error finding landmarks. Please try again later.');
-    }
-  });
+function createUserLocationMarker() {
+  const element = document.createElement('div');
+  element.className = 'marker-element';
+  element.style.backgroundColor = '#F66A5B';
+  return element;
 }
 
-// Display landmarks on the map
-async function displayLandmarks(landmarksData) {
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+/**
+ * Get the user's current location
+ */
+function getUserLocation() {
+  // Show loading indicator
+  setLoading(true);
 
-  // Clear existing markers
-  clearExistingMarkers();
-
-  // Get the map center for placing landmarks if they don't have precise coordinates
-  const center = map.getCenter();
-  const mapCenter = {
-    lat: center.lat(),
-    lng: center.lng(),
-  };
-
-  // Check if we have landmarks data in the expected format
-  if (
-    landmarksData &&
-    landmarksData.landmarks &&
-    Array.isArray(landmarksData.landmarks)
-  ) {
-    // Place landmarks around the center point in a circle if coordinates are missing
-    landmarksData.landmarks.forEach((landmark, index) => {
-      // Create an info window for the landmark
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="max-width: 250px;">
-            <h3>${landmark.name}</h3>
-            <p><strong>Type:</strong> ${
-              landmark.type || 'Point of Interest'
-            }</p>
-            <p>${landmark.description || 'No description available.'}</p>
-          </div>
-        `,
-      });
-
-      // Keep track of info windows
-      activeInfoWindows.push(infoWindow);
-
-      // Use available coordinates or create position around center
-      let position;
-
-      if (
-        landmark.lat !== undefined &&
-        (landmark.lon !== undefined || landmark.lng !== undefined)
-      ) {
-        position = {
-          lat: landmark.lat,
-          lng: landmark.lon || landmark.lng,
+  // Check if geolocation is available in the browser
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const userLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
         };
-      } else {
-        // Place in a circle around the center
-        const angle = (index / landmarksData.landmarks.length) * Math.PI * 2;
-        const radius = 0.01; // Approximately 1km
-        position = {
-          lat: mapCenter.lat + Math.cos(angle) * radius,
-          lng: mapCenter.lng + Math.sin(angle) * radius,
-        };
-      }
 
-      console.log(`Placing landmark "${landmark.name}" at position:`, position);
+        map.setCenter(userLocation);
+        map.setZoom(default_zoom);
 
-      let marker;
-      // Use AdvancedMarkerElement if available
-      if (false && AdvancedMarkerElement) {
-        const markerContent = document.createElement('div');
-        markerContent.innerHTML = '🏛️';
-        markerContent.style.fontSize = '24px';
-
-        marker = new AdvancedMarkerElement({
-          position: position,
+        // Add a marker at the user's location using AdvancedMarkerElement
+        const { AdvancedMarkerElement } = await google.maps.importLibrary(
+          'marker'
+        );
+        new AdvancedMarkerElement({
+          position: userLocation,
           map: map,
-          title: landmark.name,
-          content: markerContent,
+          title: 'Your Location',
+          content: createUserLocationMarker(),
         });
 
-        // Add click listener to open info window
-        marker.addListener('click', () => {
-          // Close any open info windows
-          activeInfoWindows.forEach((window) => window.close());
-          infoWindow.open({
-            anchor: marker,
-            map: map,
-          });
-        });
-      } else {
-        // Fallback to standard marker
-        marker = new google.maps.Marker({
-          position: position,
-          map: map,
-          title: landmark.name,
-          animation: google.maps.Animation.DROP,
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-          },
-        });
-
-        // Add click listener to open info window
-        marker.addListener('click', () => {
-          // Close any open info windows
-          activeInfoWindows.forEach((window) => window.close());
-          infoWindow.open(map, marker);
-        });
+        setLoading(false);
+      },
+      (error) => {
+        setLoading(false);
+        handleError(`Error getting your location: ${error.message}`);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
       }
-
-      // Open first landmark info window by default
-      if (index === 0) {
-        setTimeout(() => {
-          infoWindow.open({
-            anchor: marker,
-            map: map,
-          });
-        }, 1000);
-      }
-
-      // Keep track of markers
-      activeMarkers.push(marker);
-    });
+    );
   } else {
-    console.error('Invalid landmarks data format:', landmarksData);
-    // Create a fallback marker at the center to show something happened
-    const noResultsMarker = document.createElement('div');
-    noResultsMarker.innerHTML = '❓';
-    noResultsMarker.style.fontSize = '24px';
-
-    const marker = AdvancedMarkerElement
-      ? new AdvancedMarkerElement({
-          position: mapCenter,
-          map: map,
-          title: 'No landmarks found',
-          content: noResultsMarker,
-        })
-      : new google.maps.Marker({
-          position: mapCenter,
-          map: map,
-          title: 'No landmarks found',
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          },
-        });
-
-    activeMarkers.push(marker);
-
-    // Create an info window to explain no results
-    const infoWindow = new google.maps.InfoWindow({
-      content: `
-        <div style="max-width: 250px;">
-          <h3>No landmarks found</h3>
-          <p>Could not find landmark information for this location.</p>
-        </div>
-      `,
-    });
-
-    infoWindow.open(map, marker);
-    activeInfoWindows.push(infoWindow);
+    setLoading(false);
+    handleError('Geolocation is not supported by your browser');
   }
-}
-
-// Clear existing markers and info windows
-function clearExistingMarkers() {
-  // Clear markers
-  activeMarkers.forEach((marker) => {
-    marker.map = null;
-  });
-  activeMarkers = [];
-
-  // Close and clear info windows
-  activeInfoWindows.forEach((window) => {
-    window.close();
-  });
-  activeInfoWindows = [];
 }
 
 /**
  * Set the loading state
  */
-function setLoading(isLoading) {
+export function setLoading(isLoading) {
   if (isLoading) {
     loadingElement.classList.remove('hidden');
   } else {
@@ -369,7 +182,7 @@ function hideError() {
  * Handle errors
  * @param {string} error - The error message
  */
-function handleError(error) {
+export function handleError(error) {
   console.error(error);
   setLoading(false);
   showError(error);
@@ -409,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('Auth initialization error:', error);
     }
   } else {
-    console.log('Auth is disabled for local development');
+    console.log('Auth is disabled for local dev');
     auth.isAuthenticated = true; // Auto-authenticated in local development
   }
 

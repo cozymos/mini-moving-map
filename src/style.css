@@ -98,6 +98,187 @@ body {
   color: #d9534f;
 }
 
+/* Search Bar */
+#search-bar-container {
+  width: 250px;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+}
+
+#search-bar {
+  display: flex;
+  width: 100%;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+#search-input {
+  flex: 1;
+  padding: 8px 8px;
+  border: none;
+  font-size: 16px;
+  outline: none;
+}
+
+#search-button {
+  background-color: white;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  text-align: center;
+  padding-right: 8px;
+}
+
+#search-button:hover {
+  background-color: #f5f5f5;
+}
+
+#search-button:active {
+  background-color: #e0e0e0;
+}
+
+/* Landmarks Sidebar */
+#landmarks-sidebar {
+  width: 250px;
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  max-height: calc(80% - 60px);
+  overflow-y: auto;
+  z-index: 10;
+}
+
+/* Medium screens */
+@media screen and (min-width: 1024px) {
+  #landmarks-sidebar,
+  #search-bar-container {
+    width: 300px;
+  }
+}
+
+/* Larger screens */
+@media screen and (min-width: 1200px) {
+  #landmarks-sidebar,
+  #search-bar-container {
+    width: 350px;
+  }
+}
+
+#landmarks-header {
+  display: flex;
+  justify-content: left;
+  position: sticky;
+  top: 0;
+  background-color: white;
+  padding-left: 10px;
+  z-index: 11;
+}
+
+#close-landmarks {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  margin: 5px;
+  text-align: center;
+}
+
+#landmarks-list {
+  padding: 10px;
+}
+
+.landmark-item {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.landmark-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.landmark-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.landmark-address {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 5px;
+  font-style: italic;
+}
+
+.landmark-summary {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.landmark-image {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 200px;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+/* Active Marker and Landmark Styles */
+.active-marker {
+  background-color: #ff5722 !important;
+  border: 2px solid #ffc107 !important;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  transform: scale(1.2);
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.marker-element {
+  border: 2px solid white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.active-landmark {
+  background-color: rgba(255, 87, 34, 0.1);
+  border-left: 3px solid #ff5722;
+  padding-left: 10px;
+  transform: translateX(3px);
+  transition: all 0.3s ease;
+}
+
+/* Clickable Landmark Elements */
+.landmark-name {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.landmark-name:hover {
+  color: #4285f4;
+  text-decoration: underline;
+}
+
+.landmark-image {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.landmark-image:hover {
+  opacity: 0.9;
+}
+
 /* Utility Classes */
 .hidden {
   display: none !important;

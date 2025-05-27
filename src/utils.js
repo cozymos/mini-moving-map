@@ -1,3 +1,25 @@
+let config = null;
+
+// vite --mode test
+export function isTestMode() {
+  return import.meta.env.MODE === 'test';
+}
+
+// Utility functions for loading configuration
+export async function getConfig() {
+  try {
+    if (!config) {
+      // Fetch the prompts.json file
+      const response = await fetch('/config.json');
+      config = await response.json();
+    }
+    return config;
+  } catch (error) {
+    console.error('Error loading config:', error);
+    throw error;
+  }
+}
+
 // Function to get and parse prompts from prompts.json
 export async function getPrompt(promptName, variables = {}) {
   try {
@@ -170,7 +192,7 @@ function validateCoords(lat, lon) {
  * Parse coordinates from URL parameters
  * @returns {Object|null} - Object with lat, lon, and zoom properties or null if invalid
  */
-function parseMapParamsFromURL() {
+export function parseMapParamsFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
 
   // Look for various possible parameter names

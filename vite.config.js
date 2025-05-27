@@ -1,9 +1,9 @@
-// vite.config.js
 import { defineConfig } from 'vite';
+import eslint from 'vite-plugin-eslint';
 
-// https://vitejs.dev/config/
-export default defineConfig({  
-  // Server configuration
+const enableESLint = false;
+
+export default defineConfig({
   server: {
     port: 5000,
     host: '0.0.0.0',
@@ -14,9 +14,15 @@ export default defineConfig({
     strictPort: true,
     */
     cors: true,
-    allowedHosts: [
-      '.replit.dev',
-      '.replit.app'
-    ]
-  }
-})
+    allowedHosts: ['.replit.dev', '.replit.app'],
+  },
+  plugins: [
+    enableESLint &&
+      eslint({
+        fix: false,
+        cache: false,
+        include: ['src/**/*.js'],
+        exclude: ['node_modules/**'],
+      }),
+  ],
+});
