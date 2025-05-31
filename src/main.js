@@ -12,6 +12,9 @@ const errorElement = document.getElementById('error-message');
 
 // Get the Google Maps API key from environment variables
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+// Default coordinates (San Francisco)
+const defaultLocation = { lat: 37.7749, lng: -122.4194 };
 const default_zoom = 12;
 
 // Map instance
@@ -25,8 +28,6 @@ let auth = {
 
 // Map initialization function - called by Google Maps API once loaded
 async function initMap() {
-  // Default coordinates (San Francisco)
-  const defaultLocation = { lat: 37.7749, lng: -122.4194 };
   const { ColorScheme } = await google.maps.importLibrary('core');
 
   // Create the map instance with a modern and clean style
@@ -100,40 +101,87 @@ function createUserLocationMarker() {
 }
 
 /**
- * Get the user's current location
+ * Get the user's current location and toggle between user location and default center
  */
-function getUserLocation() {
-  // Show loading indicator
-  setLoading(true);
+async function getUserLocation() {
+  try {
+    setLoading(true);
 
-  // Check if geolocation is available in the browser
-  if (navigator.geolocation) {
+    // Step 1: Compute if at default center
+    const currentCenter = map.getCenter();
+    const isAtDefaultCenter =
+      Math.abs(currentCenter.lat() - defaultLocation.lat) < 0.0001 &&
+      Math.abs(currentCenter.lng() - defaultLocation.lng) < 0.0001;
+
+    // Step 2: Get user location
+    const userLocation = await getCurrentPosition();
+
+    // Step 3: Check toggle condition and determine target
+    let targetLocation;
+    let shouldShowMarker = false;
+
+    if (isAtDefaultCenter) {
+      // At default center → go to user location and show marker
+      targetLocation = userLocation;
+      shouldShowMarker = true;
+    } else {
+      // Check if at user location
+      const isAtUserLocation =
+        Math.abs(currentCenter.lat() - userLocation.lat) < 0.0001 &&
+        Math.abs(currentCenter.lng() - userLocation.lng) < 0.0001;
+
+      if (isAtUserLocation) {
+        // At user location → go to default center
+        targetLocation = defaultLocation;
+      } else {
+        // At neither location → go to user location and show marker
+        targetLocation = userLocation;
+        shouldShowMarker = true;
+      }
+    }
+
+    // Step 4: Pan to coordinate and show marker if needed
+    map.panTo(targetLocation);
+    map.setZoom(default_zoom);
+
+    if (shouldShowMarker) {
+      const { AdvancedMarkerElement } = await google.maps.importLibrary(
+        'marker'
+      );
+      new AdvancedMarkerElement({
+        position: targetLocation,
+        map: map,
+        title: 'Your Location',
+        content: createUserLocationMarker(),
+      });
+    }
+
+    setLoading(false);
+  } catch (error) {
+    setLoading(false);
+    handleError(`Error with location: ${error.message}`);
+  }
+}
+
+/**
+ * Promisified getCurrentPosition wrapper
+ */
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by your browser'));
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const userLocation = {
+      (position) => {
+        resolve({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        };
-
-        map.setCenter(userLocation);
-        map.setZoom(default_zoom);
-
-        // Add a marker at the user's location using AdvancedMarkerElement
-        const { AdvancedMarkerElement } = await google.maps.importLibrary(
-          'marker'
-        );
-        new AdvancedMarkerElement({
-          position: userLocation,
-          map: map,
-          title: 'Your Location',
-          content: createUserLocationMarker(),
         });
-
-        setLoading(false);
       },
       (error) => {
-        setLoading(false);
-        handleError(`Error getting your location: ${error.message}`);
+        reject(error);
       },
       {
         enableHighAccuracy: true,
@@ -141,10 +189,7 @@ function getUserLocation() {
         maximumAge: 0,
       }
     );
-  } else {
-    setLoading(false);
-    handleError('Geolocation is not supported by your browser');
-  }
+  });
 }
 
 /**

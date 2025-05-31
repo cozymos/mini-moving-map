@@ -56,10 +56,10 @@ export async function getPrompt(promptName, variables = {}) {
 /**
  * Get the appropriate language code based on country
  * @param {Object} country - The country information
- * @returns {string|null} - The language code or null if no special handling needed
+ * @returns {string|null} - The language code or default to 'en'
  */
 export function getLanguageCodeForCountry(country) {
-  if (!country || !country.name) return null;
+  if (!country || !country.name) return 'en';
 
   const countryName = country.name.toLowerCase();
   const countryCode = country.code;
@@ -79,9 +79,9 @@ export function getLanguageCodeForCountry(country) {
     !countryName.includes('usa') &&
     !countryName.includes('united states')
   )
-    return 'en';
+    return 'en-US';
 
-  return null;
+  return 'en'
 }
 
 /**

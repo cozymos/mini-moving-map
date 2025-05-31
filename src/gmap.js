@@ -106,6 +106,8 @@ export async function getLocationName(latitude, longitude) {
     if (!country) {
       country = 'Unknown';
     }
+    
+    console.log(`Where: ${locationName}, ${country}`);
 
     return { locationName, country };
   } catch (error) {
@@ -223,7 +225,7 @@ export async function PlaceNearbySearch(position, radius) {
     if (country) {
       languageCode = getLanguageCodeForCountry(country);
       if (languageCode) {
-        console.log(`Which lang code: ${country.name} > ${languageCode}`);
+        console.log(`Which country: ${country.name} > language: ${languageCode}`);
       }
     }
   } catch (error) {

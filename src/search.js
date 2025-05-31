@@ -146,8 +146,7 @@ async function searchLandmark() {
   const lng = center.lng();
 
   // Get landmarks data
-  const language = 'en'; // Default to English
-  const landmarksData = await getLandmarkData(lat, lng, language);
+  const landmarksData = await getLandmarkData(lat, lng);
   setLoading(false);
 
   if (
@@ -242,30 +241,41 @@ function createMarkerElement(title) {
 async function displayLandmarks(places) {
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
 
-  // Create bounds to fit all landmarks
   const bounds = new google.maps.LatLngBounds();
 
-  // Clear existing infoWindows array if not defined
+  // Clear existing info windows
   if (!window.infoWindows) {
     window.infoWindows = [];
   } else {
-    // Close any open info windows
     window.infoWindows.forEach((iw) => iw.close());
     window.infoWindows = [];
   }
 
-  // Process each landmark
-  places.forEach((place, index) => {
-    // Extract location coordinates
+  // Process each place sequentially with proper async/await
+  for (let index = 0; index < places.length; index++) {
+    const place = places[index];
     const position = {
       lat: place.location.latitude,
       lng: place.location.longitude,
     };
 
-    // Get place name from displayName
     const placeName = place.displayName?.text || 'Unnamed Place';
+    const summary = place.generativeSummary?.overview?.text || '';
+    const placeTypes = place.primaryType
+      ? `${place.primaryType}${
+          place.types ? `: ${place.types.join(', ')}` : ''
+        }`
+      : '';
+    const address = placeTypes || place.formattedAddress || '';
+    const placeUri = place.googleMapsLinks?.placeUri || null;
 
-    // Add marker for the landmark using AdvancedMarkerElement
+    console.log(
+      `${index + 1}) ${placeName} ${
+        placeTypes ? `(${placeTypes})` : ''
+      } // ${summary.substring(0, 20)}`
+    );
+
+    // Create marker
     const markerView = new AdvancedMarkerElement({
       position: position,
       map: map,
@@ -273,259 +283,50 @@ async function displayLandmarks(places) {
       content: createMarkerElement(placeName),
     });
 
-    // Add index as data attribute for reference
     markerView.index = index;
-
-    // Store marker for later cleanup
     markers.push(markerView);
-
-    // Extend bounds to include this landmark
     bounds.extend(position);
 
-    // Get AI-powered summary if available
-    const summary = place.generativeSummary?.overview?.text || '';
-
-    const placeTypes = place.primaryType
-      ? `${place.primaryType}${
-          place.types ? `: ${place.types.join(', ')}` : ''
-        }`
-      : '';
-    console.log(
-      `${index + 1}) ${placeName} ${
-        placeTypes ? `(${placeTypes})` : ''
-      } // ${summary.substring(0, 20)}`
+    // Create sidebar element
+    const landmarkElement = createSidebarElement(
+      placeName,
+      address,
+      summary,
+      index
     );
-
-    // Get address if available
-    const address = placeTypes || place.formattedAddress || '';
-
-    // Create a placeholder for this landmark in the list
-    const landmarkElement = document.createElement('div');
-    landmarkElement.className = 'landmark-item';
-    landmarkElement.dataset.index = index;
-    landmarkElement.innerHTML = `
-      <div class="landmark-name">${placeName}</div>
-      ${address ? `<div class="landmark-address">${address}</div>` : ''}
-      ${summary ? `<div class="landmark-summary">${summary}</div>` : ''}
-      <div class="landmark-photo-container"></div>
-    `;
-    landmarksList.appendChild(landmarkElement);
-
-    // Create Google Maps link for place if available
-    let placeUri = null;
-    if (place.googleMapsLinks && place.googleMapsLinks.placeUri) {
-      placeUri = place.googleMapsLinks.placeUri;
-    }
-
-    // Get the photo container for adding the image later
     const photoContainer = landmarkElement.querySelector(
       '.landmark-photo-container'
     );
 
-    // Create info window with interactive content
-    const infoWindowContent = document.createElement('div');
-    infoWindowContent.style.maxWidth = '200px';
-
-    const titleElement = document.createElement('h3');
-    titleElement.style.marginTop = '0';
-    titleElement.style.marginBottom = '8px';
-    titleElement.style.fontSize = '16px';
-    titleElement.style.fontWeight = 'bold';
-    titleElement.textContent = placeName;
-
-    // Make title clickable if place URI exists
-    if (placeUri) {
-      titleElement.style.cursor = 'pointer';
-      titleElement.style.color = '#4285F4';
-      titleElement.addEventListener('click', () => {
-        window.open(placeUri, '_blank');
-      });
-    }
-
-    const summaryElement = document.createElement('p');
-    summaryElement.textContent = summary;
-    summaryElement.style.fontSize = '14px';
-    summaryElement.style.marginBottom = '8px';
-
-    infoWindowContent.appendChild(titleElement);
-    infoWindowContent.appendChild(summaryElement);
-
-    // Create the info window
+    // Create info window
+    const infoWindowContent = createInfoWindowContent(
+      placeName,
+      summary,
+      placeUri
+    );
     const infoWindow = new google.maps.InfoWindow({
       content: infoWindowContent,
     });
 
-    // Store info window in global array
     window.infoWindows.push(infoWindow);
 
-    // Fetch an image from Wikipedia for this landmark
-    getWikiImageURL(placeName)
-      .then((imageUrl) => {
-        if (imageUrl) {
-          // Create image element for the sidebar
-          const photoElement = document.createElement('img');
-          photoElement.src = imageUrl;
-          photoElement.className = 'landmark-image';
-          photoElement.alt = placeName;
-          photoElement.style.cursor = 'pointer';
+    // Add images asynchronously
+    await addImageToPlace(placeName, photoContainer, infoWindowContent);
 
-          // Add click event to photo to view in large size
-          photoElement.addEventListener('click', (e) => {
-            e.stopPropagation();
-
-            // Create full-screen overlay for the image
-            const overlay = document.createElement('div');
-            overlay.style.position = 'fixed';
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.width = '100%';
-            overlay.style.height = '100%';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-            overlay.style.display = 'flex';
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'center';
-            overlay.style.zIndex = '9999';
-
-            // Create the large image
-            const largeImage = document.createElement('img');
-            largeImage.src = imageUrl;
-            largeImage.style.maxWidth = '90%';
-            largeImage.style.maxHeight = '90%';
-            largeImage.style.objectFit = 'contain';
-
-            // Close on click
-            overlay.addEventListener('click', () => {
-              document.body.removeChild(overlay);
-            });
-
-            // Add image to overlay and overlay to body
-            overlay.appendChild(largeImage);
-            document.body.appendChild(overlay);
-          });
-
-          // Add to sidebar
-          photoContainer.appendChild(photoElement);
-
-          // Create image element for info window
-          const imgElement = document.createElement('img');
-          imgElement.src = imageUrl;
-          imgElement.style.width = '100%';
-          imgElement.style.marginTop = '8px';
-          imgElement.style.borderRadius = '4px';
-          imgElement.style.cursor = 'pointer';
-
-          // Make image clickable to view in large size
-          imgElement.addEventListener('click', () => {
-            // Create full-screen overlay for the image
-            const overlay = document.createElement('div');
-            overlay.style.position = 'fixed';
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.width = '100%';
-            overlay.style.height = '100%';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-            overlay.style.display = 'flex';
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'center';
-            overlay.style.zIndex = '9999';
-
-            // Create the large image
-            const largeImage = document.createElement('img');
-            largeImage.src = imageUrl;
-            largeImage.style.maxWidth = '90%';
-            largeImage.style.maxHeight = '90%';
-            largeImage.style.objectFit = 'contain';
-
-            // Close on click
-            overlay.addEventListener('click', () => {
-              document.body.removeChild(overlay);
-            });
-
-            // Add image to overlay and overlay to body
-            overlay.appendChild(largeImage);
-            document.body.appendChild(overlay);
-          });
-
-          // Add to info window
-          infoWindowContent.appendChild(imgElement);
-        }
-      })
-      .catch((error) => {
-        console.error(`Error adding images for ${placeName}:`, error);
-      });
-
-    // Function to highlight marker and corresponding sidebar item
-    function highlightMarkerAndSidebar(index) {
-      // Remove active class from all markers and sidebar items
-      markers.forEach((marker) => {
-        const markerElement = marker.content.querySelector('.marker-element');
-        if (markerElement) {
-          markerElement.classList.remove('active-marker');
-        }
-      });
-
-      document.querySelectorAll('.landmark-item').forEach((item) => {
-        item.classList.remove('active-landmark');
-      });
-
-      // Add active class to current marker and sidebar item
-      const markerElement =
-        markers[index].content.querySelector('.marker-element');
-      if (markerElement) {
-        markerElement.classList.add('active-marker');
-      }
-
-      const sidebarItem = document.querySelector(
-        `.landmark-item[data-index="${index}"]`
-      );
-      if (sidebarItem) {
-        sidebarItem.classList.add('active-landmark');
-        sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-
-    // Add click event to marker to show info window (using gmp-click for AdvancedMarkerElement)
-    markerView.addListener('gmp-click', () => {
-      // Close any open info windows
-      window.infoWindows.forEach((iw) => iw.close());
-
-      // Open this info window
-      infoWindow.open({
-        anchor: markerView,
-        map: map,
-      });
-
-      // Highlight this marker and sidebar item
-      highlightMarkerAndSidebar(index);
-
-      // Center map on this marker
-      map.panTo(position);
-    });
-
-    // Add click handler to the landmark name in sidebar
-    const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
-    landmarkNameElement.addEventListener('click', () => {
-      // Close any open info windows
-      window.infoWindows.forEach((iw) => iw.close());
-
-      // Open info window for this landmark
-      infoWindow.open({
-        anchor: markerView,
-        map: map,
-      });
-
-      // Highlight this marker and sidebar item
-      highlightMarkerAndSidebar(index);
-
-      // Center map on this marker
-      map.panTo(position);
-    });
-  });
+    // Setup interactions
+    setupPlaceInteractions(
+      markerView,
+      infoWindow,
+      landmarkElement,
+      position,
+      index
+    );
+  }
 
   landmarkSidebar.classList.remove('hidden');
 
   // Center map on the first result
-  if (places[0].location) {
+  if (places[0]?.location) {
     const firstLocation = {
       lat: places[0].location.latitude,
       lng: places[0].location.longitude,
@@ -536,6 +337,202 @@ async function displayLandmarks(places) {
   // Adjust map to show all landmarks
   map.fitBounds(bounds);
   map.setZoom(default_zoom);
+}
+
+/**
+ * Create full-screen overlay for image viewing
+ */
+function createImageOverlay(imageUrl) {
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.zIndex = '9999';
+
+  const largeImage = document.createElement('img');
+  largeImage.src = imageUrl;
+  largeImage.style.maxWidth = '90%';
+  largeImage.style.maxHeight = '90%';
+  largeImage.style.objectFit = 'contain';
+
+  overlay.addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+
+  overlay.appendChild(largeImage);
+  document.body.appendChild(overlay);
+}
+
+/**
+ * Create clickable image element for sidebar
+ */
+function createSidebarImage(imageUrl, placeName, photoContainer) {
+  const photoElement = document.createElement('img');
+  photoElement.src = imageUrl;
+  photoElement.className = 'landmark-image';
+  photoElement.alt = placeName;
+  photoElement.style.cursor = 'pointer';
+
+  photoElement.addEventListener('click', (e) => {
+    e.stopPropagation();
+    createImageOverlay(imageUrl);
+  });
+
+  photoContainer.appendChild(photoElement);
+}
+
+/**
+ * Create clickable image element for info window
+ */
+function createInfoWindowImage(imageUrl, infoWindowContent) {
+  const imgElement = document.createElement('img');
+  imgElement.src = imageUrl;
+  imgElement.style.width = '100%';
+  imgElement.style.marginTop = '8px';
+  imgElement.style.borderRadius = '4px';
+  imgElement.style.cursor = 'pointer';
+
+  imgElement.addEventListener('click', () => {
+    createImageOverlay(imageUrl);
+  });
+
+  infoWindowContent.appendChild(imgElement);
+}
+
+/**
+ * Add image to both sidebar and info window
+ */
+async function addImageToPlace(placeName, photoContainer, infoWindowContent) {
+  try {
+    const imageUrl = await getWikiImageURL(placeName);
+    if (imageUrl) {
+      createSidebarImage(imageUrl, placeName, photoContainer);
+      createInfoWindowImage(imageUrl, infoWindowContent);
+    }
+  } catch (error) {
+    console.error(`Error adding images for ${placeName}:`, error);
+  }
+}
+
+/**
+ * Create info window content for a place
+ */
+function createInfoWindowContent(placeName, summary, placeUri) {
+  const infoWindowContent = document.createElement('div');
+  infoWindowContent.style.maxWidth = '200px';
+
+  const titleElement = document.createElement('h3');
+  titleElement.style.marginTop = '0';
+  titleElement.style.marginBottom = '8px';
+  titleElement.style.fontSize = '16px';
+  titleElement.style.fontWeight = 'bold';
+  titleElement.textContent = placeName;
+
+  if (placeUri) {
+    titleElement.style.cursor = 'pointer';
+    titleElement.style.color = '#4285F4';
+    titleElement.addEventListener('click', () => {
+      window.open(placeUri, '_blank');
+    });
+  }
+
+  const summaryElement = document.createElement('p');
+  summaryElement.textContent = summary;
+  summaryElement.style.fontSize = '14px';
+  summaryElement.style.marginBottom = '8px';
+
+  infoWindowContent.appendChild(titleElement);
+  infoWindowContent.appendChild(summaryElement);
+
+  return infoWindowContent;
+}
+
+/**
+ * Create sidebar element for a landmark
+ */
+function createSidebarElement(placeName, address, summary, index) {
+  const landmarkElement = document.createElement('div');
+  landmarkElement.className = 'landmark-item';
+  landmarkElement.dataset.index = index;
+  landmarkElement.innerHTML = `
+    <div class="landmark-name">${placeName}</div>
+    ${address ? `<div class="landmark-address">${address}</div>` : ''}
+    ${summary ? `<div class="landmark-summary">${summary}</div>` : ''}
+    <div class="landmark-photo-container"></div>
+  `;
+  landmarksList.appendChild(landmarkElement);
+  return landmarkElement;
+}
+
+/**
+ * Highlight marker and corresponding sidebar item
+ */
+function highlightMarkerAndSidebar(index) {
+  // Remove active class from all markers and sidebar items
+  for (const marker of markers) {
+    const markerElement = marker.content.querySelector('.marker-element');
+    if (markerElement) {
+      markerElement.classList.remove('active-marker');
+    }
+  }
+
+  document.querySelectorAll('.landmark-item').forEach((item) => {
+    item.classList.remove('active-landmark');
+  });
+
+  // Add active class to current marker and sidebar item
+  const markerElement = markers[index].content.querySelector('.marker-element');
+  if (markerElement) {
+    markerElement.classList.add('active-marker');
+  }
+
+  const sidebarItem = document.querySelector(
+    `.landmark-item[data-index="${index}"]`
+  );
+  if (sidebarItem) {
+    sidebarItem.classList.add('active-landmark');
+    sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+/**
+ * Setup click handlers for marker and sidebar interaction
+ */
+function setupPlaceInteractions(
+  markerView,
+  infoWindow,
+  landmarkElement,
+  position,
+  index
+) {
+  // Marker click handler
+  markerView.addListener('gmp-click', () => {
+    window.infoWindows.forEach((iw) => iw.close());
+    infoWindow.open({
+      anchor: markerView,
+      map: map,
+    });
+    highlightMarkerAndSidebar(index);
+    map.panTo(position);
+  });
+
+  // Sidebar click handler
+  const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
+  landmarkNameElement.addEventListener('click', () => {
+    window.infoWindows.forEach((iw) => iw.close());
+    infoWindow.open({
+      anchor: markerView,
+      map: map,
+    });
+    highlightMarkerAndSidebar(index);
+    map.panTo(position);
+  });
 }
 
 /**

@@ -1,17 +1,15 @@
 {
-  "name": "workspace",
+  "name": "map-land1",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vite --mode test",
     "dev": "vite --force",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@types/memoizee": "^0.4.12",
-    "memoizee": "^0.4.17",
     "openai": "^4.100.0",
     "openid-client": "^6.5.0"
   },
@@ -19,7 +17,7 @@
     "vite": "^6.3.5",
     "@eslint/js": "^9.27.0",
     "eslint": "^9.27.0",
-    "globals": "^16.1.0",
+    "globals": "^16.2.0",
     "vite-plugin-eslint": "^1.8.1"
   }
 }

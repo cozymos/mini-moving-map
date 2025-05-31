@@ -1,5 +1,10 @@
 import { getLocationName } from './gmap.js';
-import { isTestMode, getPrompt, getConfig } from './utils.js';
+import {
+  isTestMode,
+  getPrompt,
+  getConfig,
+  getLanguageCodeForCountry,
+} from './utils.js';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
@@ -8,7 +13,7 @@ let lastRequestTime = 0;
 const REQUEST_THROTTLE_MS = 100; // Min time between requests
 
 // Get landmarks near location using OpenAI API
-export async function getLandmarksWithGPT(locationData, language = 'en') {
+export async function getLandmarksWithGPT(locationData, locale = 'en') {
   try {
     if (isTestMode()) {
       const config = await getConfig();
@@ -31,7 +36,7 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
     const prompt = await getPrompt('landmarks', {
       locationName: locationData.locationName,
       country: locationData.country,
-      language,
+      locale,
     });
 
     console.log('Prompting:', prompt);
@@ -127,13 +132,21 @@ export async function getLandmarksWithGPT(locationData, language = 'en') {
 }
 
 // Function to get landmark data given map center coordinates
-export async function getLandmarkData(lat, lng, language = 'en') {
+export async function getLandmarkData(lat, lng) {
   try {
     // Get location name from coordinates
     const locationData = await getLocationName(lat, lng);
+    const country = {
+      name: locationData.country,
+      code: null,
+    };
+    let locale = getLanguageCodeForCountry(country);
+    console.log(
+      `Which country: ${country.name} > locale: ${locale}`
+    );
 
     // Get landmarks using OpenAI
-    const landmarksData = await getLandmarksWithGPT(locationData, language);
+    const landmarksData = await getLandmarksWithGPT(locationData, locale);
 
     return landmarksData;
   } catch (error) {
