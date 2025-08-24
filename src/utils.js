@@ -1,27 +1,33 @@
-let config = null;
+export const SETTINGS_KEY = 'APP_SETTINGS';
 
-// vite --mode test
-export function isTestMode() {
-  return import.meta.env.MODE === 'test';
+export function getSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+  } catch (error) {
+    console.error(`Error getting ${SETTINGS_KEY}:`, error);
+    return {};
+  }
 }
+
+let CONFIG_CACHE = null;
 
 // Utility functions for loading configuration
 export async function getConfig() {
   try {
-    if (!config) {
-      // Fetch the prompts.json file
-      const response = await fetch('/config.json');
-      config = await response.json();
+    if (!CONFIG_CACHE) {
+      if (window.APP_CONFIG?.jsonConfig_url) {
+        const response = await fetch(window.APP_CONFIG?.jsonConfig_url);
+        CONFIG_CACHE = await response.json();
+      }
     }
-    return config;
   } catch (error) {
     console.error('Error loading config:', error);
-    throw error;
   }
+  return CONFIG_CACHE;
 }
 
 // Function to get and parse prompts from prompts.json
-export async function getPrompt(promptName, variables = {}) {
+export async function getPromptinJSON(promptName, variables = {}) {
   try {
     // Fetch the prompts.json file
     const response = await fetch('/prompts.json');
@@ -49,68 +55,49 @@ export async function getPrompt(promptName, variables = {}) {
     return processedPrompt;
   } catch (error) {
     console.error('Error loading prompt:', error);
-    throw error;
   }
 }
 
 /**
- * Get the appropriate language code based on country
- * @param {Object} country - The country information
- * @returns {string|null} - The language code or default to 'en'
+ * Checks overlap count between new_landmarks and last_landmarks.
+ * If limit is null, returns true if all new_landmarks exist in last_landmarks.
+ * If limit is set, returns true if number of matches > limit.
+ * @param {Array} new_landmarks - Array of new landmark objects
+ * @param {Array} last_landmarks - Array of previous landmark objects
+ * @param {number|null} [limit=null] - Optional threshold
+ * @returns {boolean}
  */
-export function getLanguageCodeForCountry(country) {
-  if (!country || !country.name) return 'en';
-
-  const countryName = country.name.toLowerCase();
-  const countryCode = country.code;
-
-  if (countryName.includes('hong kong') || countryName.includes('macau')) {
-    return 'zh-HK';
-  } else if (countryName.includes('china') || countryCode === 'CN') {
-    return 'zh-CN';
-  } else if (
-    countryName.includes('taiwan') ||
-    countryName.includes('singapore') ||
-    countryName.includes('japan') ||
-    countryName.includes('korea')
-  ) {
-    return 'zh-TW';
-  } else if (
-    !countryName.includes('usa') &&
-    !countryName.includes('united states')
-  )
-    return 'en-US';
-
-  return 'en'
+export function same_landmarks(new_landmarks, last_landmarks, limit = null) {
+  if (!new_landmarks || !last_landmarks) return false;
+  let count = 0;
+  for (const new_item of new_landmarks) {
+    const found = last_landmarks.some(
+      (last_item) => new_item.name === last_item.name
+    );
+    if (found) {
+      count += 1;
+    }
+  }
+  if (limit === null) {
+    return count === new_landmarks.length; // all must match
+  }
+  return count > limit;
 }
 
 /**
- * Utility functions for handling map coordinates
+ * Escape HTML to prevent XSS attacks
+ * @param {string} unsafe - Unsafe string that might contain HTML
+ * @returns {string} - Escaped safe HTML string
  */
+export function escapeHTML(unsafe) {
+  if (!unsafe) return '';
 
-/**
- * Standardize coordinate name to 'lat' or 'lon'
- * @param {string} name - The coordinate name to normalize
- * @returns {string} - Standardized name ('lat' or 'lon') or null if invalid
- */
-function normalizeCoordName(name) {
-  if (!name || typeof name !== 'string') {
-    return null;
-  }
-
-  const lowerName = name.toLowerCase();
-
-  if (lowerName === 'lat' || lowerName === 'latitude') {
-    return 'lat';
-  } else if (
-    lowerName === 'lon' ||
-    lowerName === 'lng' ||
-    lowerName === 'longitude'
-  ) {
-    return 'lon';
-  }
-
-  return null;
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 /**
@@ -118,7 +105,7 @@ function normalizeCoordName(name) {
  * @param {number|string} value - The coordinate value to normalize
  * @returns {number|null} - Normalized value or null if invalid
  */
-function normalizeCoordValue(value) {
+export function normalizeCoordValue(value) {
   if (value === undefined || value === null) {
     return null;
   }
@@ -136,42 +123,12 @@ function normalizeCoordValue(value) {
 }
 
 /**
- * Parse a coordinate from any input
- * @param {any} input - The input to parse
- * @returns {number|null} - Parsed coordinate value or null if invalid
- */
-function parseCoord(input) {
-  if (input === undefined || input === null) {
-    return null;
-  }
-
-  return normalizeCoordValue(input);
-}
-
-/**
- * Format coordinates in standard [lat, lon] format
- * @param {number|string} lat - Latitude value
- * @param {number|string} lon - Longitude value
- * @returns {Array|null} - Formatted [lat, lon] array or null if invalid
- */
-function formatCoords(lat, lon) {
-  const normalizedLat = normalizeCoordValue(lat);
-  const normalizedLon = normalizeCoordValue(lon);
-
-  if (normalizedLat === null || normalizedLon === null) {
-    return null;
-  }
-
-  return [normalizedLat, normalizedLon];
-}
-
-/**
  * Validate that coordinates are within valid ranges
  * @param {number|string} lat - Latitude value
  * @param {number|string} lon - Longitude value
  * @returns {boolean} - True if coordinates are valid
  */
-function validateCoords(lat, lon) {
+export function validateCoords(lat, lon) {
   const normalizedLat = normalizeCoordValue(lat);
   const normalizedLon = normalizeCoordValue(lon);
 
@@ -196,8 +153,10 @@ export function parseMapParamsFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
 
   // Look for various possible parameter names
-  const lat = parseCoord(urlParams.get('lat') || urlParams.get('latitude'));
-  const lon = parseCoord(
+  const lat = normalizeCoordValue(
+    urlParams.get('lat') || urlParams.get('latitude')
+  );
+  const lon = normalizeCoordValue(
     urlParams.get('lon') || urlParams.get('lng') || urlParams.get('longitude')
   );
 
@@ -213,7 +172,8 @@ export function parseMapParamsFromURL() {
   // Only return if we have both valid coordinates
   if (lat !== null && lon !== null && validateCoords(lat, lon)) {
     return {
-      center: [lat, lon],
+      //center: [lat, lon],
+      center: { lat: lat, lng: lon },
       zoom: zoom,
     };
   }
@@ -222,32 +182,79 @@ export function parseMapParamsFromURL() {
 }
 
 /**
- * Get default coordinates if URL parsing fails
- * @param {Array} defaultCenter - Default center coordinates [lat, lon]
- * @param {number} defaultZoom - Default zoom level
- * @returns {Object} - Object with lat, lon, and zoom properties
+ * Calculate distance between two coordinates in kilometers
+ * @param {number} lat1 - First latitude
+ * @param {number} lng1 - First longitude
+ * @param {number} lat2 - Second latitude
+ * @param {number} lng2 - Second longitude
+ * @returns {number} - Distance in kilometers
  */
-function getDefaultMapParams(defaultCenter, defaultZoom) {
-  const coords = formatCoords(
-    defaultCenter && defaultCenter[0] !== undefined
-      ? defaultCenter[0]
-      : 37.7749,
-    defaultCenter && defaultCenter[1] !== undefined
-      ? defaultCenter[1]
-      : -122.4194
-  );
-
-  return {
-    center: coords || [37.7749, -122.4194],
-    zoom: typeof defaultZoom === 'number' ? defaultZoom : 12,
-  };
+export function distance_km(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
-// Make these functions globally available
-window.normalizeCoordName = normalizeCoordName;
-window.normalizeCoordValue = normalizeCoordValue;
-window.parseCoord = parseCoord;
-window.formatCoords = formatCoords;
-window.validateCoords = validateCoords;
-window.parseMapParamsFromURL = parseMapParamsFromURL;
-window.getDefaultMapParams = getDefaultMapParams;
+/**
+ * Normalize longitude values to the range [-180, 180]
+ * @param {number} lng - Raw longitude value
+ * @returns {number} Normalized longitude
+ */
+export function normalizeLng(lng) {
+  lng = ((lng % 360) + 360) % 360; // Ensures 0 <= lng < 360
+  if (lng > 180) lng -= 360;
+  return lng;
+}
+
+/**
+ * Toggle the loading spinner
+ * @param {boolean} isLoading - Whether to show the spinner
+ */
+export function setLoading(isLoading) {
+  const loadingElement = document.getElementById('loading');
+  if (!loadingElement) return;
+
+  if (isLoading) {
+    loadingElement.classList.remove('hidden');
+  } else {
+    loadingElement.classList.add('hidden');
+  }
+}
+
+function showError(message) {
+  const errorElement = document.getElementById('error-message');
+  if (!errorElement) return;
+
+  errorElement.textContent = message;
+  errorElement.classList.remove('hidden');
+
+  // Hide after 5 seconds
+  setTimeout(() => {
+    hideError();
+  }, 5000);
+}
+
+function hideError() {
+  const errorElement = document.getElementById('error-message');
+  if (errorElement) {
+    errorElement.classList.add('hidden');
+  }
+}
+
+/**
+ * Log and surface an error message to the user
+ * @param {string} error - The error message
+ */
+export function handleError(error) {
+  console.error(error);
+  setLoading(false);
+  showError(error);
+}

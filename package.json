@@ -4,14 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "vite --mode test",
+    "test": "node src/test_runner1.js",
     "dev": "vite --force",
     "build": "vite build",
     "preview": "vite preview"
-  },
-  "dependencies": {
-    "openai": "^4.100.0",
-    "openid-client": "^6.5.0"
   },
   "devDependencies": {
     "vite": "^6.3.5",

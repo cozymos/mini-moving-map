@@ -3,11 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>map-land1</title>
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <title>Map Explorer</title>
+    <link rel="icon" type="image/svg+xml" href="/globe.svg" />
     <link rel="stylesheet" href="/src/style.css" />
+
+    <style>
+      /* Sqaure icon button per Google map style */
+      .control-button {
+        width: 40px;
+        height: 40px;
+        background-color: white;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        margin: 10px;
+        text-align: center;
+      }
+
+      .control-button:hover {
+        background-color: #f5f5f5;
+      }
+
+      .control-button:active {
+        background-color: #e0e0e0;
+      }
+
+      /* Active Marker and Landmark Styles */
+      .active-marker {
+        background-color: #ff5722 !important;
+        border: 2px solid #ffc107 !important;
+        box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5),
+          0 2px 6px rgba(0, 0, 0, 0.4) !important;
+        transform: scale(1.2);
+        z-index: 100;
+        transition: all 0.3s ease;
+      }
+
+      .marker-element {
+        border: 2px solid white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .active-landmark {
+        background-color: rgba(255, 87, 34, 0.1);
+        border-left: 3px solid #ff5722;
+        padding-left: 10px;
+        transform: translateX(3px);
+        transition: all 0.3s ease;
+      }
+
+      .landmark-name {
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+
+      .landmark-name:hover {
+        text-decoration: underline;
+      }
+
+      .landmark-image {
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+      }
+
+      .landmark-image:hover {
+        opacity: 0.9;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, Roboto,
+          sans-serif;
+      }
+    </style>
   </head>
   <body>
+    <noscript> You need to enable JavaScript to run this app. </noscript>
     <!-- Map container -->
     <div id="map"></div>
 
@@ -22,13 +97,28 @@
     >
       🏛️
     </button>
+    <button id="settings-button" class="control-button" title="Settings">
+      ⚙️
+    </button>
 
     <!-- Search Bar -->
     <div id="search-bar-container" class="hidden">
-      <div id="search-bar">
-        <input type="text" id="search-input" placeholder="Search location…" />
-        <button id="search-button" title="Search">🔍</button>
-      </div>
+      <!-- Form input to auto-save history -->
+      <form id="search-form" onsubmit="return false;">
+        <div id="search-bar">
+          <input
+            type="search"
+            id="search-input"
+            name="landmark location"
+            list="search-history"
+            placeholder="Search location…"
+            autocomplete="on"
+          />
+          <!-- on-demand display of saved location -->
+          <datalist id="search-history"></datalist>
+          <button id="search-button" type="submit" title="Search">🔍</button>
+        </div>
+      </form>
     </div>
 
     <!-- Landmarks Sidebar -->
@@ -42,13 +132,92 @@
     <!-- Loading Indicator -->
     <div id="loading">
       <div class="loading-spinner"></div>
-      <div class="loading-text">Loading map...</div>
+      <div class="loading-text">Loading map…</div>
+    </div>
+
+    <!-- Caching Notification -->
+    <div id="caching-notification" class="hidden">
+      <div class="caching-content">
+        <div class="caching-spinner"></div>
+        <div class="caching-text">Finding landmarks…</div>
+        <button id="dismiss-caching" class="dismiss-button" title="Dismiss">
+          &times;
+        </button>
+      </div>
     </div>
 
     <!-- Error Message -->
     <div id="error-message" class="hidden"></div>
 
-    <!-- Main application script - this will load Google Maps API dynamically -->
-    <script type="module" src="/src/main.js"></script>
+    <!-- Settings Dialog -->
+    <div id="settings-dialog" class="settings-overlay hidden">
+      <div class="settings-content">
+        <div class="settings-bar">
+          <button id="add-setting-btn" class="icon-btn" title="Add New Setting">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+          </button>
+          <div id="status-message" class="transitional-message">✓</div>
+          <button id="close-btn" class="icon-btn" title="Close">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="table-scollable">
+          <table id="settings-table">
+            <tbody>
+              <!-- Rows will be dynamically inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.APP_CONFIG = {
+        jsonConfig_url: '/config.json',
+        GOOGLE_MAPS_API_KEY: '%VITE_GOOGLE_MAPS_API_KEY%',
+        OPENAI_API_KEY: '%VITE_OPENAI_API_KEY%',
+        GOOGLE_MAP_ID: 'f61a40c10abb6e5a61bdfb74',
+        CACHE_TTL_HOURS: 48,
+      };
+    </script>
+
+    <!-- Main application script - loads Google Maps API dynamically -->
+    <script type="module" src="/src/app.js"></script>
+
+    <!-- Frontend Test Runner (loads after main application) -->
+    <script type="module">
+      // loads dev-specific code
+      if (!import.meta.env || import.meta.env.DEV) {
+        import('/src/test_runner1.js')
+          .then(() => {})
+          .catch((error) => {
+            console.error('Failed to load test runner:', error);
+          });
+      }
+    </script>
   </body>
 </html>

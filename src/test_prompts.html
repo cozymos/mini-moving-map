@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Prompt Utilities</title>
+</head>
+<body>
+    <h1>JavaScript Prompt Utilities Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import { GetPrompt, GetSystemMessage, ValidatePromptVariables } from './prompt_utils.js';
+        
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            output.innerHTML += `<div>${message}</div>`;
+            console.log(message);
+        }
+        
+        function testPrompts() {
+            log('<h2>Testing Prompt Utilities</h2>');
+            
+            // Test 1: Get a landmark discovery prompt
+            log('<h3>Test 1: Landmark Discovery Prompt</h3>');
+            const landmarkPrompt = GetPrompt('landmarks.discovery', {
+                location_name: 'Paris',
+                radius: 10,
+                locale: 'en'
+            });
+            
+            if (landmarkPrompt) {
+                log('✅ Successfully got landmark discovery prompt');
+                log(`<pre>${landmarkPrompt.substring(0, 200)}...</pre>`);
+            } else {
+                log('❌ Failed to get landmark discovery prompt');
+            }
+            
+            // Test 2: Get a system message
+            log('<h3>Test 2: System Message</h3>');
+            const systemMsg = GetSystemMessage('travel_agent');
+            
+            if (systemMsg) {
+                log('✅ Successfully got system message');
+                log(`<pre>${systemMsg}</pre>`);
+            } else {
+                log('❌ Failed to get system message');
+            }
+            
+            // Test 3: Test missing variables
+            log('<h3>Test 3: Missing Variables Test</h3>');
+            const missingVarPrompt = GetPrompt('landmarks.discovery', {
+                location_name: 'Tokyo'
+                // Missing radius and locale
+            });
+            
+            if (missingVarPrompt === null) {
+                log('✅ Correctly detected missing variables');
+            } else {
+                log('❌ Should have detected missing variables');
+            }
+            
+            // Test 4: Validate variables
+            log('<h3>Test 4: Variable Validation</h3>');
+            const validation = ValidatePromptVariables('landmarks.discovery', {
+                location_name: 'New York',
+                radius: 15,
+                locale: 'en'
+            });
+            
+            if (validation.success) {
+                log('✅ Variable validation passed');
+            } else {
+                log(`❌ Variable validation failed: ${validation.error}`);
+            }
+            
+            // Test 5: Test destinations prompt
+            log('<h3>Test 5: Destinations History Prompt</h3>');
+            const historyPrompt = GetPrompt('destinations.history', {
+                landmark_name: 'Eiffel Tower',
+                location_name: 'Paris'
+            });
+            
+            if (historyPrompt) {
+                log('✅ Successfully got destinations history prompt');
+                log(`<pre>${historyPrompt}</pre>`);
+            } else {
+                log('❌ Failed to get destinations history prompt');
+            }
+            
+            // Test 6: Test invalid prompt path
+            log('<h3>Test 6: Invalid Prompt Path</h3>');
+            const invalidPrompt = GetPrompt('invalid.path.here');
+            
+            if (invalidPrompt === null) {
+                log('✅ Correctly handled invalid prompt path');
+            } else {
+                log('❌ Should have returned null for invalid path');
+            }
+            
+            log('<h2>All tests completed!</h2>');
+        }
+        
+        // Run tests when page loads
+        testPrompts();
+    </script>
+</body>
+</html>

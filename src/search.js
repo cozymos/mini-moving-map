@@ -1,26 +1,54 @@
-/* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
-import { getLandmarkData, getWikiImageURL } from './services.js';
-import { setLoading, handleError } from './main.js';
-import { PlaceTextSearch, PlaceNearbySearch } from './gmap.js';
+import { getLocationCoord } from './gmap.js';
+import {
+  getCachedLandmarks,
+  setCachedLandmarks,
+  enableLandmarkCache,
+  getHistory,
+} from './cache.js';
+import {
+  getConfig,
+  validateCoords,
+  normalizeCoordValue,
+  setLoading,
+  handleError,
+} from './utils.js';
+import { landmarkService, mapInterface, isTestMode } from './interfaces.js';
+import { cachingNotification } from './components.js';
 
 // DOM Elements
-const searchLandmarksButton = document.getElementById('search-landmarks');
+const myLocationButton = document.getElementById('my-location');
 const searchSideBar = document.getElementById('search-bar-container');
 const searchInput = document.getElementById('search-input');
+const searchHistory = document.getElementById('search-history');
 const searchButton = document.getElementById('search-button');
 const landmarkSidebar = document.getElementById('landmarks-sidebar');
 const landmarksList = document.getElementById('landmarks-list');
-const closeLandmarksButton = document.getElementById('close-landmarks');
 
-const default_radius = 10000;
+const default_radius = 15;
 const default_zoom = 12;
 
 // Map instance
 let map;
 
-// Track active landmark markers for cleanup
-let markers = [];
+// State variable to save last center position
+let lastCenter = { lat: 37.323, lng: -122.0322 };
+
+// State variable to save last dataset
+let last_result = null;
+
+/**
+ * Calculates the search radius based on the current zoom level.
+ * The radius is halved for each zoom level between defaultRadius and maxRadius.
+ * Lower zoom = larger radius (higher zoom = smaller radius)
+ * @param {number} zoomLevel - Current map zoom level
+ * @returns {number} - Search radius in kilometers
+ */
+function calculateSearchRadius(zoomLevel, maxRadius = 50) {
+  const zoomDiff = zoomLevel - default_zoom;
+  const scaledRadius = default_radius * Math.pow(0.5, zoomDiff);
+  return Math.min(Math.max(default_radius, scaledRadius), maxRadius);
+}
 
 export function initSearch() {
   // Get map instance from global scope (set in map.js)
@@ -30,25 +58,120 @@ export function initSearch() {
     return;
   }
 
-  setupLandmarkSearch();
+  window.addEventListener('CachingNotification_updated', async (event) => {
+    // console.debug('Landmarks updated at:', event.detail.timestamp);
+    const currentCenter = mapInterface.getMapCenter(map);
+    if (
+      Math.abs(currentCenter.lat - lastCenter.lat) < 0.1 &&
+      Math.abs(currentCenter.lng - lastCenter.lng) < 0.1
+    )
+      // auto-refresh landmarks based on updated server-side cache
+      await searchLandmarks();
+  });
+
   setupTextSearch();
 }
 
-/**
- * Set up landmark search control
- */
-function setupLandmarkSearch() {
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
-    searchLandmarksButton
-  );
-  searchLandmarksButton.addEventListener('click', () => {
-    // searchNearby();
-    searchLandmark();
-  });
+export async function searchLandmarks() {
+  try {
+    // Clear any existing landmarks and markers
+    landmarksList.innerHTML = '';
+    mapInterface.clearLandMarkers();
 
-  closeLandmarksButton.addEventListener('click', () => {
-    landmarkSidebar.classList.add('hidden');
-  });
+    // Get current map center
+    lastCenter = mapInterface.getMapCenter(map);
+    const lat = normalizeCoordValue(lastCenter.lat);
+    const lon = normalizeCoordValue(lastCenter.lng);
+    const radius_km = calculateSearchRadius(map.getZoom());
+
+    let landmarkData = null;
+    if (isTestMode()) {
+      console.log('Using test landmarks (test mode enabled)');
+      const config = await getConfig();
+      landmarkData = {
+        location: config?.defaults?.default_location?.name,
+        coordinates: [lat, lon],
+        landmarks: config?.test_mode?.test_landmarks || [],
+        cache_type: 'test_mode',
+      };
+    } else {
+      // Check cache first
+      const cached_data = getCachedLandmarks(lat, lon, radius_km, last_result);
+      if (cached_data) {
+        await mapInterface.displayLandmarks(cached_data);
+        last_result = cached_data;
+        if (cached_data?.cache_type == 'gpt_select') {
+          // update cache with images after displaying them
+          setCachedLandmarks(lat, lon, radius_km, cached_data);
+        }
+        return;
+      }
+
+      // Show loading indicator and fetch from API
+      setLoading(true);
+      landmarkData = await landmarkService.get_landmark_data(
+        lat,
+        lon,
+        radius_km,
+        last_result
+      );
+      if (landmarkData?.cache_type == 'nearby_places') {
+        cachingNotification.show();
+      }
+    }
+    if (landmarkData?.landmarks?.length > 0) {
+      console.log(
+        `Found ${landmarkData.landmarks.length} landmarks`,
+        landmarkData
+      );
+
+      // Display landmarks and show sidebar
+      const imagesToCache = await mapInterface.displayLandmarks(landmarkData);
+      if (landmarkData?.cache_type != 'nearby_places') {
+        // client-side caching for GPT results only
+        last_result = landmarkData;
+        setCachedLandmarks(lat, lon, radius_km, landmarkData);
+        await landmarkService.cacheImages(imagesToCache);
+      }
+
+      // Update URL parameters with current position
+      updateUrlParameters();
+    } else handleError('No landmarks found in this area.');
+  } catch (error) {
+    console.error('Error searching for landmarks:', error);
+    console.error('Error details:', error.message || 'Unknown error');
+
+    // Show error message
+    landmarksList.innerHTML = `
+                <div class="landmark-item error">
+                    <div class="landmark-name">Couldn't connect to service</div>
+                    <div class="landmark-summary">
+                        <p>There was a problem retrieving landmarks information. This could be due to:</p>
+                        <ul>
+                            <li>Network connectivity issues</li>
+                            <li>API service temporarily unavailable</li>
+                        </ul>
+                        <p>Please check your network connection and try again later.</p>
+                        <button id="retry-landmarks" class="btn">Try Again</button>
+                    </div>
+                </div>
+            `;
+
+    // Add event listener to retry button
+    const retryButton = document.getElementById('retry-landmarks');
+    if (retryButton) {
+      retryButton.addEventListener('click', function () {
+        searchLandmarks();
+      });
+    }
+
+    // Show landmarks panel with error
+    landmarkSidebar.classList.remove('hidden');
+    mapInterface.clearLandMarkers();
+    handleError('There was an error retrieving landmarks information.');
+  } finally {
+    setLoading(false);
+  }
 }
 
 /**
@@ -60,487 +183,217 @@ function setupTextSearch() {
   // Add click event to search button
   searchButton.addEventListener('click', () => {
     const query = searchInput.value.trim();
-    if (query) {
-      searchText(query);
-    }
+    if (query) searchText(query);
   });
 
   // Add event listener for Enter key in search input
-  searchInput.addEventListener('keypress', (event) => {
-    if (event.key === 'Enter') {
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
       const query = searchInput.value.trim();
-      if (query) {
-        searchText(query);
+      if (query) searchText(query);
+    }
+  });
+
+  console.debug('Local cache enabled: ', enableLandmarkCache());
+  searchInput.addEventListener('focus', (e) => {
+    updateSearchHistory();
+    landmarkSidebar.classList.add('hidden');
+    e.target.select();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    // Don't trigger if user is typing in an input already
+    const isTyping =
+      document.activeElement.tagName === 'INPUT' ||
+      document.activeElement.tagName === 'TEXTAREA';
+    if (isTyping) return;
+
+    if (e.key === '/') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select(); // select all text
+    }
+  });
+}
+
+function updateSearchHistory() {
+  const history = getHistory().slice(-10);
+  searchHistory.innerHTML = ''; // Clear existing options
+  history.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item;
+    searchHistory.appendChild(option);
+  });
+}
+
+let lastQuery = null;
+let lastPlace = null;
+let lastCoord = null;
+let lastLoc = null;
+
+/**
+ * Perform a text search for location (not landmarks)
+ * @param {string} query - The search query entered by the user
+ */
+async function searchText(query) {
+  try {
+    if (!query || query.trim() === '') {
+      handleError('Please enter a valid search query.');
+      return;
+    }
+
+    let locData = null;
+    landmarksList.innerHTML = '';
+    mapInterface.clearLandMarkers();
+    landmarkSidebar.classList.add('hidden');
+    setLoading(true);
+
+    // Check if the query is the same as the last one
+    if (query != lastQuery) {
+      // New Queries Pass 1: Geocoding API to lookup location
+      lastQuery = query;
+      lastPlace = lastLoc = null;
+      const coords = await getLocationCoord(query);
+      if (coords && validateCoords(coords.lat, coords.lon)) {
+        lastCoord = coords;
+        mapInterface.mapPanTo(lastCoord.lat, lastCoord.lon);
+        return;
       }
     }
-  });
 
-  searchInput.addEventListener('focus', () => {
-    searchInput.value = '';
-    landmarkSidebar.classList.add('hidden');
-  });
-}
-
-async function searchText(query) {
-  // Clear any existing landmarks and markers
-  landmarksList.innerHTML = '';
-  clearMarkers();
-
-  // Show loading indicator
-  setLoading(true);
-  const places = await PlaceTextSearch(query);
-  setLoading(false);
-
-  if (places && places.length > 0) {
-    // Display landmarks and show sidebar
-    displayLandmarks(places);
-  } else {
-    handleError(`Location not found for "${query}"`);
-  }
-}
-
-async function searchNearby() {
-  // Clear any existing landmarks
-  landmarksList.innerHTML = '';
-  clearMarkers();
-
-  // Show loading indicator
-  setLoading(true);
-
-  // Get current map center
-  const center = map.getCenter();
-  const position = {
-    lat: center.lat(),
-    lng: center.lng(),
-  };
-
-  // Calculate search radius based on zoom level (higher zoom = smaller radius)
-  const zoomLevel = map.getZoom();
-  const radius = Math.max(
-    default_radius,
-    default_radius * Math.pow(0.5, zoomLevel - default_zoom)
-  );
-
-  const places = await PlaceNearbySearch(position, radius);
-  setLoading(false);
-
-  if (places && places.length > 0) {
-    // Display landmarks and show sidebar
-    displayLandmarks(places);
-  } else {
-    handleError('No landmarks found in this area.');
-  }
-}
-
-async function searchLandmark() {
-  // Clear any existing landmarks
-  landmarksList.innerHTML = '';
-  clearMarkers();
-
-  // Show loading indicator
-  setLoading(true);
-
-  // Get current map center
-  const center = map.getCenter();
-  const lat = center.lat();
-  const lng = center.lng();
-
-  // Get landmarks data
-  const landmarksData = await getLandmarkData(lat, lng);
-  setLoading(false);
-
-  if (
-    landmarksData &&
-    landmarksData.landmarks &&
-    landmarksData.landmarks.length > 0
-  ) {
-    const places = landmarksData.landmarks.map((landmark) => ({
-      displayName: {
-        text: landmark.name,
-      },
-      generativeSummary: {
-        overview: {
-          text: landmark.description || 'No description available.',
-        },
-      },
-      primaryType: landmark.type || 'Point of Interest',
-      location: {
-        latitude: landmark.lat,
-        longitude: landmark.lon || landmark.lng,
-      },
-    }));
-
-    if (places && places.length > 0) {
-      // Display landmarks and show sidebar
-      displayLandmarks(places);
+    if (!lastPlace) {
+      // Pass 2: call Google Text Search API
+      const lat = normalizeCoordValue(lastCoord?.lat);
+      const lon = normalizeCoordValue(lastCoord?.lon);
+      locData = await landmarkService.queryLocation(query, lat, lon, false);
+      if (locData?.landmarks?.length > 0) {
+        lastPlace = locData.landmarks[0];
+        mapInterface.mapPanTo(lastPlace.lat, lastPlace.lon);
+        locData.landmarks[0].local = query;
+      }
+    } else {
+      // Pass 3: GPT query with pass2 info
+      const lat = normalizeCoordValue(lastPlace.lat);
+      const lon = normalizeCoordValue(lastPlace.lon);
+      if (lastLoc) {
+        query = `${lastPlace.name}, ${lastPlace.loc}`;
+        searchInput.value = '';
+        lastQuery = null;
+      }
+      locData = await landmarkService.queryLocation(query, lat, lon, true);
+      if (locData?.landmarks?.length > 0) {
+        lastLoc = locData.landmarks[0];
+        mapInterface.mapPanTo(lastLoc.lat, lastLoc.lon);
+      }
     }
-  } else {
-    handleError('No landmarks found in this area.');
-  }
-}
 
-/**
- * Create a custom element for the advanced marker
- * @param {string} title - The title to display in the marker
- * @returns {HTMLElement} The marker element
- */
-function createMarkerElement(title) {
-  // Create a container for the marker
-  const container = document.createElement('div');
-  container.className = 'marker-container';
-  container.style.position = 'relative';
-
-  const makerColor = '#6aa8f7';
-  const highlightMaker = '#4285F4';
-
-  // Create dot element
-  const element = document.createElement('div');
-  element.className = 'marker-element';
-  element.style.backgroundColor = makerColor;
-  element.dataset.title = title; // Store title for later use
-
-  // Add marker title that shows on hover
-  const titleElement = document.createElement('div');
-  titleElement.textContent = title;
-  titleElement.style.position = 'absolute';
-  titleElement.style.bottom = '100%';
-  titleElement.style.left = '50%';
-  titleElement.style.transform = 'translateX(-50%)';
-  titleElement.style.backgroundColor = 'white';
-  titleElement.style.padding = '4px 8px';
-  titleElement.style.borderRadius = '4px';
-  titleElement.style.fontWeight = 'bold';
-  titleElement.style.fontSize = '14px';
-  titleElement.style.whiteSpace = 'nowrap';
-  titleElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-  titleElement.style.marginBottom = '5px';
-  titleElement.style.display = 'none';
-  titleElement.style.zIndex = '1';
-
-  // Add event listeners for hover
-  element.addEventListener('mouseover', () => {
-    titleElement.style.display = 'block';
-    element.style.backgroundColor = highlightMaker;
-  });
-
-  element.addEventListener('mouseout', () => {
-    titleElement.style.display = 'none';
-    element.style.backgroundColor = makerColor;
-  });
-
-  // Append to container
-  container.appendChild(element);
-  container.appendChild(titleElement);
-
-  return container;
-}
-
-/**
- * Display landmarks on the map and in the sidebar
- */
-async function displayLandmarks(places) {
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-
-  const bounds = new google.maps.LatLngBounds();
-
-  // Clear existing info windows
-  if (!window.infoWindows) {
-    window.infoWindows = [];
-  } else {
-    window.infoWindows.forEach((iw) => iw.close());
-    window.infoWindows = [];
-  }
-
-  // Process each place sequentially with proper async/await
-  for (let index = 0; index < places.length; index++) {
-    const place = places[index];
-    const position = {
-      lat: place.location.latitude,
-      lng: place.location.longitude,
-    };
-
-    const placeName = place.displayName?.text || 'Unnamed Place';
-    const summary = place.generativeSummary?.overview?.text || '';
-    const placeTypes = place.primaryType
-      ? `${place.primaryType}${
-          place.types ? `: ${place.types.join(', ')}` : ''
-        }`
-      : '';
-    const address = placeTypes || place.formattedAddress || '';
-    const placeUri = place.googleMapsLinks?.placeUri || null;
-
-    console.log(
-      `${index + 1}) ${placeName} ${
-        placeTypes ? `(${placeTypes})` : ''
-      } // ${summary.substring(0, 20)}`
-    );
-
-    // Create marker
-    const markerView = new AdvancedMarkerElement({
-      position: position,
-      map: map,
-      title: placeName,
-      content: createMarkerElement(placeName),
-    });
-
-    markerView.index = index;
-    markers.push(markerView);
-    bounds.extend(position);
-
-    // Create sidebar element
-    const landmarkElement = createSidebarElement(
-      placeName,
-      address,
-      summary,
-      index
-    );
-    const photoContainer = landmarkElement.querySelector(
-      '.landmark-photo-container'
-    );
-
-    // Create info window
-    const infoWindowContent = createInfoWindowContent(
-      placeName,
-      summary,
-      placeUri
-    );
-    const infoWindow = new google.maps.InfoWindow({
-      content: infoWindowContent,
-    });
-
-    window.infoWindows.push(infoWindow);
-
-    // Add images asynchronously
-    await addImageToPlace(placeName, photoContainer, infoWindowContent);
-
-    // Setup interactions
-    setupPlaceInteractions(
-      markerView,
-      infoWindow,
-      landmarkElement,
-      position,
-      index
-    );
-  }
-
-  landmarkSidebar.classList.remove('hidden');
-
-  // Center map on the first result
-  if (places[0]?.location) {
-    const firstLocation = {
-      lat: places[0].location.latitude,
-      lng: places[0].location.longitude,
-    };
-    map.setCenter(firstLocation);
-  }
-
-  // Adjust map to show all landmarks
-  map.fitBounds(bounds);
-  map.setZoom(default_zoom);
-}
-
-/**
- * Create full-screen overlay for image viewing
- */
-function createImageOverlay(imageUrl) {
-  const overlay = document.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100%';
-  overlay.style.height = '100%';
-  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.zIndex = '9999';
-
-  const largeImage = document.createElement('img');
-  largeImage.src = imageUrl;
-  largeImage.style.maxWidth = '90%';
-  largeImage.style.maxHeight = '90%';
-  largeImage.style.objectFit = 'contain';
-
-  overlay.addEventListener('click', () => {
-    document.body.removeChild(overlay);
-  });
-
-  overlay.appendChild(largeImage);
-  document.body.appendChild(overlay);
-}
-
-/**
- * Create clickable image element for sidebar
- */
-function createSidebarImage(imageUrl, placeName, photoContainer) {
-  const photoElement = document.createElement('img');
-  photoElement.src = imageUrl;
-  photoElement.className = 'landmark-image';
-  photoElement.alt = placeName;
-  photoElement.style.cursor = 'pointer';
-
-  photoElement.addEventListener('click', (e) => {
-    e.stopPropagation();
-    createImageOverlay(imageUrl);
-  });
-
-  photoContainer.appendChild(photoElement);
-}
-
-/**
- * Create clickable image element for info window
- */
-function createInfoWindowImage(imageUrl, infoWindowContent) {
-  const imgElement = document.createElement('img');
-  imgElement.src = imageUrl;
-  imgElement.style.width = '100%';
-  imgElement.style.marginTop = '8px';
-  imgElement.style.borderRadius = '4px';
-  imgElement.style.cursor = 'pointer';
-
-  imgElement.addEventListener('click', () => {
-    createImageOverlay(imageUrl);
-  });
-
-  infoWindowContent.appendChild(imgElement);
-}
-
-/**
- * Add image to both sidebar and info window
- */
-async function addImageToPlace(placeName, photoContainer, infoWindowContent) {
-  try {
-    const imageUrl = await getWikiImageURL(placeName);
-    if (imageUrl) {
-      createSidebarImage(imageUrl, placeName, photoContainer);
-      createInfoWindowImage(imageUrl, infoWindowContent);
+    if (locData) {
+      await mapInterface.displayLandmarks(locData);
+    } else {
+      handleError(`Location not found for "${query}"`);
     }
   } catch (error) {
-    console.error(`Error adding images for ${placeName}:`, error);
-  }
-}
+    console.error('Error searching for text:', error);
+    handleError(`Error searching for "${query}": ${error.message}`);
+  } finally {
+    setLoading(false);
 
-/**
- * Create info window content for a place
- */
-function createInfoWindowContent(placeName, summary, placeUri) {
-  const infoWindowContent = document.createElement('div');
-  infoWindowContent.style.maxWidth = '200px';
-
-  const titleElement = document.createElement('h3');
-  titleElement.style.marginTop = '0';
-  titleElement.style.marginBottom = '8px';
-  titleElement.style.fontSize = '16px';
-  titleElement.style.fontWeight = 'bold';
-  titleElement.textContent = placeName;
-
-  if (placeUri) {
-    titleElement.style.cursor = 'pointer';
-    titleElement.style.color = '#4285F4';
-    titleElement.addEventListener('click', () => {
-      window.open(placeUri, '_blank');
-    });
-  }
-
-  const summaryElement = document.createElement('p');
-  summaryElement.textContent = summary;
-  summaryElement.style.fontSize = '14px';
-  summaryElement.style.marginBottom = '8px';
-
-  infoWindowContent.appendChild(titleElement);
-  infoWindowContent.appendChild(summaryElement);
-
-  return infoWindowContent;
-}
-
-/**
- * Create sidebar element for a landmark
- */
-function createSidebarElement(placeName, address, summary, index) {
-  const landmarkElement = document.createElement('div');
-  landmarkElement.className = 'landmark-item';
-  landmarkElement.dataset.index = index;
-  landmarkElement.innerHTML = `
-    <div class="landmark-name">${placeName}</div>
-    ${address ? `<div class="landmark-address">${address}</div>` : ''}
-    ${summary ? `<div class="landmark-summary">${summary}</div>` : ''}
-    <div class="landmark-photo-container"></div>
-  `;
-  landmarksList.appendChild(landmarkElement);
-  return landmarkElement;
-}
-
-/**
- * Highlight marker and corresponding sidebar item
- */
-function highlightMarkerAndSidebar(index) {
-  // Remove active class from all markers and sidebar items
-  for (const marker of markers) {
-    const markerElement = marker.content.querySelector('.marker-element');
-    if (markerElement) {
-      markerElement.classList.remove('active-marker');
+    if (!lastPlace && !lastLoc) {
+      // Push new position to browser history
+      updateUrlParameters(true);
     }
   }
-
-  document.querySelectorAll('.landmark-item').forEach((item) => {
-    item.classList.remove('active-landmark');
-  });
-
-  // Add active class to current marker and sidebar item
-  const markerElement = markers[index].content.querySelector('.marker-element');
-  if (markerElement) {
-    markerElement.classList.add('active-marker');
-  }
-
-  const sidebarItem = document.querySelector(
-    `.landmark-item[data-index="${index}"]`
-  );
-  if (sidebarItem) {
-    sidebarItem.classList.add('active-landmark');
-    sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
 }
 
 /**
- * Setup click handlers for marker and sidebar interaction
+ * Update the URL parameters with the current map center and zoom level
  */
-function setupPlaceInteractions(
-  markerView,
-  infoWindow,
-  landmarkElement,
-  position,
-  index
-) {
-  // Marker click handler
-  markerView.addListener('gmp-click', () => {
-    window.infoWindows.forEach((iw) => iw.close());
-    infoWindow.open({
-      anchor: markerView,
-      map: map,
-    });
-    highlightMarkerAndSidebar(index);
-    map.panTo(position);
-  });
+export function updateUrlParameters(pushState = false) {
+  if (!map) return;
 
-  // Sidebar click handler
-  const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
-  landmarkNameElement.addEventListener('click', () => {
-    window.infoWindows.forEach((iw) => iw.close());
-    infoWindow.open({
-      anchor: markerView,
-      map: map,
-    });
-    highlightMarkerAndSidebar(index);
-    map.panTo(position);
+  const center = mapInterface.getMapCenter(map);
+  const lat = normalizeCoordValue(center.lat);
+  const lon = normalizeCoordValue(center.lng);
+  const zoom = parseInt(map.getZoom());
+
+  // Create URL with the new parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.set('lat', lat);
+  urlParams.set('lon', lon);
+  urlParams.set('zoom', zoom);
+
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  console.debug('URL:', newUrl);
+
+  if (pushState) window.history.pushState({ lat, lon, zoom }, '', newUrl);
+  else window.history.replaceState({ lat, lon, zoom }, '', newUrl);
+}
+
+/**
+ * Set up the location control to center the map on the user's location
+ */
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      handleError('Geolocation is not supported by your browser');
+      myLocationButton.disabled = true;
+      myLocationButton.title = 'Geolocation is not supported by your browser';
+      reject(new Error('Geolocation is not supported by your browser'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error(`Error with Geolocation: ${error.message}`);
+        handleError('Unable to get your Geolocation.');
+        reject(error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+      }
+    );
   });
 }
 
 /**
- * Clear all markers from the map
+ * Get the user's current location and toggle between user location and last center
  */
-function clearMarkers() {
-  markers.forEach((marker) => {
-    marker.map = null;
-  });
-  markers = [];
+export async function getUserLocation() {
+  // Step 1: Get current center and user location
+  const currentCenter = mapInterface.getMapCenter(map);
+  const userLocation = await getCurrentPosition();
+
+  // Step 2: Check if at user location
+  const isAtUserLocation =
+    Math.abs(currentCenter.lat - userLocation.lat) < 0.1 &&
+    Math.abs(currentCenter.lng - userLocation.lng) < 0.1;
+
+  // Step 3: Determine target location
+  let targetLocation;
+  let shouldShowMarker = false;
+
+  if (isAtUserLocation && lastCenter) {
+    // At user location → go to last center
+    targetLocation = lastCenter;
+  } else {
+    // Not at user location → save current as last center and go to user location
+    lastCenter = currentCenter;
+    targetLocation = userLocation;
+    shouldShowMarker = true;
+  }
+
+  // Step 4: Pan to coordinate and show marker if needed
+  mapInterface.mapPanTo(targetLocation.lat, targetLocation.lng);
+
+  // Update URL parameters with current position
+  updateUrlParameters();
+  return shouldShowMarker ? targetLocation : null;
 }

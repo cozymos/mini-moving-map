@@ -1,65 +1,107 @@
-# Google Maps Viewer
+# Map Explorer
 
-A minimalist full-screen Google Maps application built with vanilla JavaScript and Vite.
+A minimalist Google Maps application with AI-powered landmark discovery and 3D exploration experience.
 
 ## Features
 
-- Full-screen Google Maps integration
-- Geolocation detection (finds and centers on user's location)
-- Landmark discovery powered by OpenAI's GPT-4o-mini model
-- Modern UI with clean styling
-- Responsive design that works on all devices
-- No frameworks or libraries - pure vanilla JavaScript
-- Fast development server with Hot Module Replacement (HMR)
+- **Landmark Discovery**: Google Places nearby search + OpenAI landmark query + Wikipedia images
+- **Location Search**: Google Places text search + OpenAI location query + User Geolocation
+- **Photorealistic 3D Maps**: Click [3D] on landmarks to navigate in 3D Space + Cinematic flyovers
 
-## Technologies Used
+### Technical Highlights
 
-- **Vanilla JavaScript** - No frameworks or libraries
-- **Google Maps JavaScript API** - For mapping functionality
-- **Google Geocoding API** - For reverse geocoding coordinates to location names
-- **OpenAI API** - For intelligent landmark discovery
-- **Vite** - For development server and build optimization
-- **HTML5 Geolocation API** - For user location detection
+- **Frontend:** Map integration, landmark visualization, location navigation, browser-side caching and test runner.
+- **LLM:** OpenAI selects landmarks from Google Places search results, generates descriptions, look up Wiki images, and adapts language based on location's country.
+- **Caching:** Proximity-based keys with coordinate rounding + location matching + search radius + TTL expiration
+- **Multi-Sources:** Google Places API (nearby search) + Wikipedia API (images) + OpenAI API (landmark info)
+- **User interaction:** location geocoding → multi-tier cache lookup → landmark discovery (Google Places + OpenAI) → multi-pass searches
+- **Configuration:** Map defaults, test mode mock data on `config.json`, LLM prompt templates on `prompts.js`
 
-## Getting Started
+### External Services
 
-### Installation
+- **Google Maps API**: Core mapping functionality with 3D support
+- **Google Places API**: Location search and nearby places discovery
+- **OpenAI API**: LLM generated landmark information
+- **Wikipedia API**: Landmark and location images
+
+### Vanilla JavaScript Frontend with Vite
+```
+src/
+├── app.js          # Init Google Maps application
+├── search.js       # Location and landmark search
+├── landmark.js     # Landmark display, markers, and 3D overlays
+├── gmap.js         # Google Maps API wrappers
+├── openai.js       # OpenAI prompting
+├── prompts.js      # LLM Prompt templates
+├── cache.js        # On-browser localStorage caching
+├── components.js   # reusable UI components
+└── test_runner.js  # Client-side testing
+```
+
+## Get Started
+
+1. **Install prerequisites**
+   - Install Node.js (https://nodejs.org/).
+   - Clone this repository and install dependencies (see `package.json`)
 
 ```bash
-# Clone the repository
 git clone <repository-url>
-
-# Navigate to the project directory
-cd google-maps-viewer
-
-# Install dependencies
+cd <my-project>
 npm install
+```
 
-# Start the development server
+2. **Create environment file**
+
+   Create your own `.env` file and add your API keys for local development. Vite exposes variables prefixed with `VITE_` to the browser app via `index.html`.
+
+```bash
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+```
+
+3. **Generate API keys**
+
+   - **Google Maps API Key**
+     1. Visit the [Google Cloud Console](https://console.cloud.google.com/).
+     2. Create or select a project.
+     3. Enable “Maps JavaScript API” and “Places API (New)” in the API library.
+     4. Create an API key under **APIs & Services → Credentials**.
+     5. For local development restrict referrers to `localhost`.
+
+   - **OpenAI API Key**
+     1. Visit the [OpenAI dashboard](https://platform.openai.com/account/api-keys).
+     2. Create a new secret key and copy it for later use; it won't be shown again.
+
+4. **Start the development server**
+
+```bash
 npm run dev
 ```
 
-## Environment Variables
+5. **Enter API keys in the app**
 
-The application requires the following environment variables:
-
-- `VITE_GOOGLE_MAPS_API_KEY` - Your Google Maps API key
-- `VITE_OPENAI_API_KEY` - Your OpenAI API key
+   - Open `http://localhost:5173` in your browser.
+   - Click the gear icon (**Settings**) in the bottom‑left corner.
+   - Fill in `GOOGLE_MAPS_API_KEY` and `OPENAI_API_KEY`, then close to save.
+   - Settings are stored in `localStorage` under `APP_SETTINGS`; landmark caches use keys starting with `landmark_`.
+   - In Chrome, view them under DevTools → Application → Local Storage.
 
 ## Usage
 
-- The map will center on your current location if you allow location permissions
-- If location access is denied, it defaults to San Francisco
-- Navigate the map using standard Google Maps controls
-- Click the "📍" button to center the map on your current location
-- Click the "🏛️" button to discover the top 3 landmarks near the current map location
+- Pan and zoom the Google map. Use the search box to jump to a city or location.
+- Click **🏛️ Landmarks** to fetch nearby points of interest around the map center.
+- Select a landmark card to read the AI-generated description and see a photo.
+- For 3D views, click **[3D]** in the card to explore a photorealistic flyover.
+- Use **📍 My Location** to center the map on your current position.
+- Open the gear icon (**Settings**) to update API keys or clear stored values.
 
-## Build for Production
+### Testing
 
-```bash
-# Generate production build
-npm run build
+- Frontend Test Runner - standalone test script running direct function testing
+- Built-in test mode with mock data from config.json, skipping API calls
+- Runnable on both browser console and Node.js CLI via `npm test`
+- Append `?test=true` to the URL to run tests on-browser
 
-# Preview production build
-npm run preview
-```
+### MIT License - see [LICENSE](LICENSE) for details.
+
+Please respect Google Maps and OpenAI terms of service.

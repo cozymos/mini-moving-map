@@ -1,130 +1,202 @@
-import { getLanguageCodeForCountry } from './utils.js';
+import { getConfig, validateCoords } from './utils.js';
+import { isTestMode, getGoogleMapsApiKey } from './interfaces.js';
+import { getCountryLanguage } from './lion.js';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+// Simple location cache to reduce API calls
+const locationCache = {};
 
-/**
- * Get country information for the specified coordinates using Geocoding API
- * @param {number} latitude - The latitude
- * @param {number} longitude - The longitude
- * @returns {Promise<Object>} - Promise that resolves to the country information
- */
-export async function getCountryFromCoordinates(latitude, longitude) {
+// Get location details (location name and country info) from coordinates
+export async function getLocationDetails(latitude, longitude) {
+  // Validate coordinates first
+  if (!validateCoords(latitude, longitude)) {
+    console.warn(`Invalid coordinates: ${latitude}, ${longitude}`);
+    return { locationName: '', country: '', countryCode: null };
+  }
+
+  // If test mode is enabled, return the default location from config
+  if (isTestMode()) {
+    const config = await getConfig();
+    const loc = config?.defaults?.default_location;
+    if (loc) {
+      console.log('Using test location (test mode enabled)');
+      return {
+        locationName: loc.name,
+        country: loc.country || 'Unknown',
+        countryCode: loc.country_code,
+      };
+    }
+  }
+
+  // Round coordinates to reduce API calls
+  // 1 decimal place: ≈ 11.1 km (Can locate a large city or district).
+  // 2 decimal places: ≈ 1.11 km (Can locate a town or village).
+  const roundedLat = latitude.toFixed(1);
+  const roundedLon = longitude.toFixed(1);
+  const cacheKey = `${roundedLat},${roundedLon}`;
+
+  // Return cached details if available
+  if (locationCache[cacheKey]) {
+    return locationCache[cacheKey];
+  }
+
+  if (!getGoogleMapsApiKey()) {
+    console.warn('Unknown Location: Google Maps API key not available');
+    return {
+      locationName: 'Unknown Location',
+      country: 'Unknown',
+      countryCode: null,
+    };
+  }
+
   try {
-    // Construct the Geocoding API URL
-    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&result_type=country`;
-
-    // Make the request
-    const response = await fetch(geocodingUrl);
-
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${getGoogleMapsApiKey()}`
+    );
     if (!response.ok) {
-      throw new Error(`Geocoding API error: ${response.status}`);
+      console.error(
+        `Unknown Location: Google Reverse Geocoding API error: ${response.status}`
+      );
+      return {
+        locationName: 'Unknown Location',
+        country: 'Unknown',
+        countryCode: null,
+      };
     }
 
     const data = await response.json();
+    if (data.status === 'OK' && data.results && data.results.length) {
+      const result = data.results[0];
+      const components = result.address_components || [];
 
-    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      console.warn('No country found in geocoding results:', data);
-      return null;
-    }
+      let locality = '';
+      let adminArea = '';
+      let country = '';
+      let countryCode = null;
 
-    // Extract the country information from the first result
-    const country = {
-      name: null,
-      code: null,
-    };
-
-    // Get country name from formatted address
-    country.name = data.results[0].formatted_address;
-
-    // Extract country code from address components
-    const addressComponents = data.results[0].address_components;
-    for (const component of addressComponents) {
-      if (component.types.includes('country')) {
-        country.code = component.short_name;
-        if (!country.name) {
-          country.name = component.long_name;
+      for (const comp of components) {
+        const types = comp.types || [];
+        if (types.includes('locality')) {
+          locality = comp.long_name || '';
+        } else if (types.includes('administrative_area_level_1')) {
+          adminArea = comp.long_name || '';
+        } else if (types.includes('country')) {
+          country = comp.long_name || '';
+          countryCode = comp.short_name;
         }
-        break;
+      }
+
+      const parts = [];
+      if (locality) parts.push(locality);
+      if (adminArea && adminArea !== locality) parts.push(adminArea);
+      if (country && country !== locality && country !== adminArea)
+        parts.push(country);
+
+      const locationName = parts.length ? parts.join(', ') : 'Unknown Location';
+      console.debug(`Where is (${cacheKey}): ${locationName} (${countryCode})`);
+
+      const resultDict = {
+        locationName,
+        country: country || 'Unknown',
+        countryCode,
+      };
+      locationCache[cacheKey] = resultDict;
+      return resultDict;
+    }
+  } catch (error) {
+    console.error('Error getting location details:', error);
+  }
+
+  return { locationName: '', country: '', countryCode: null };
+}
+
+// Get coordinates from a location name
+export async function getLocationCoord(locationName) {
+  try {
+    if (isTestMode()) {
+      const config = await getConfig();
+      const loc = config?.defaults?.default_location;
+      if (loc) {
+        console.log('Using test coordinates (test mode enabled)');
+        return {
+          lat: loc.lat,
+          lon: loc.lon,
+        };
       }
     }
 
-    console.log(`Geocoding found country: ${country.name} (${country.code})`);
-    return country;
-  } catch (error) {
-    console.error('Error getting country from coordinates:', error);
-    return null;
-  }
-}
-
-// Get location name from coordinates using Google Geocoding API
-export async function getLocationName(latitude, longitude) {
-  try {
+    const encoded = encodeURIComponent(locationName);
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${getGoogleMapsApiKey()}`
     );
 
     if (!response.ok) {
-      throw new Error('Failed to fetch location name');
+      throw new Error('Failed to fetch location coordinates');
     }
 
     const data = await response.json();
 
     if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      throw new Error('No location data found');
+      throw new Error('Location not found');
     }
 
-    // Find the most appropriate result (locality or neighborhood)
-    let locationName = '';
-    let country = '';
+    const coords = data.results[0].geometry.location;
+    const lat = parseFloat(coords.lat);
+    const lon = parseFloat(coords.lng !== undefined ? coords.lng : coords.lon);
 
-    // Try to find a locality or administrative area
-    for (const result of data.results) {
-      const types = result.types || [];
-      if (types.includes('locality') || types.includes('political')) {
-        locationName = result.formatted_address.split(',')[0].trim();
-      }
-
-      // Extract country from address components
-      const addressComponents = result.address_components || [];
-      for (const component of addressComponents) {
-        const componentTypes = component.types || [];
-        if (componentTypes.includes('country')) {
-          country = component.long_name;
-          break;
-        }
-      }
-
-      if (locationName && country) break;
-    }
-
-    // If no specific locality found, use the first result
-    if (!locationName && data.results[0]) {
-      locationName = data.results[0].formatted_address.split(',')[0].trim();
-    }
-
-    // Default country if not found
-    if (!country) {
-      country = 'Unknown';
-    }
-    
-    console.log(`Where: ${locationName}, ${country}`);
-
-    return { locationName, country };
+    return { lat, lon };
   } catch (error) {
-    console.error('Error getting location name:', error);
-    throw error;
+    console.error(locationName, error);
   }
+}
+
+function placeData(places) {
+  const place_data = { landmarks: [] };
+  place_data.landmarks = places.map((field) => ({
+    name: field.displayName?.text || 'Unknown place',
+    desc: field.generativeSummary?.overview?.text,
+    lat: field.location.latitude,
+    lon: field.location.longitude,
+    type: field.primaryTypeDisplayName?.text,
+    loc: field.formattedAddress,
+  }));
+  return place_data;
 }
 
 /**
  * Search for locations and landmarks using Text Search (New) API
  * @param {string} query - The search query text
- * @param {string} languageCode - Optional language code for the API request
+ * @param {string} langCode - Optional language code for the API request
  */
-export async function PlaceTextSearch(query, languageCode = null) {
+export async function PlaceTextSearch(
+  query,
+  langCode = null,
+  maxResultCount = 2
+) {
+  if (isTestMode()) {
+    console.log('Using test place (test mode enabled)');
+    const config = await getConfig();
+    return {
+      location: config?.defaults?.default_location?.name,
+      landmarks: config?.test_mode?.test_landmarks.slice(0, 1) || [],
+      cache_type: 'test_mode',
+    };
+  }
+
+  if (!getGoogleMapsApiKey()) {
+    throw new Error('Google Maps API key is not configured');
+  }
+
   // URL for the Text Search (New) API endpoint
   const apiUrl = 'https://places.googleapis.com/v1/places:searchText';
-  const maxResultCount = 3;
+
+  // Headers including proper field mask
+  let fieldmask =
+    'places.displayName,places.location,places.primaryTypeDisplayName,places.formattedAddress';
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': getGoogleMapsApiKey(),
+    'X-Goog-FieldMask': fieldmask,
+  };
 
   // Create request body for Text Search (New)
   const requestBody = {
@@ -133,28 +205,12 @@ export async function PlaceTextSearch(query, languageCode = null) {
   };
 
   // Add languageCode to request if provided
-  if (languageCode) {
-    requestBody.languageCode = languageCode;
+  if (langCode) {
+    requestBody.languageCode = langCode;
   }
-
-  // Headers including field mask for AI-powered summaries and photos
-  let fieldmask =
-    'places.id,places.displayName,places.location,places.generativeSummary';
-  fieldmask += ',places.googleMapsLinks.placeUri,places.formattedAddress';
-  if (maxResultCount > 1) {
-    fieldmask += ',places.types,places.primaryType';
-  }
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-    'X-Goog-FieldMask': fieldmask,
-  };
-
-  console.log('API Req:', JSON.stringify(requestBody));
 
   try {
-    // Make the API request using fetch
+    // console.debug('Text Search Req:', requestBody);
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: headers,
@@ -163,82 +219,98 @@ export async function PlaceTextSearch(query, languageCode = null) {
 
     if (!response.ok) {
       console.error('API Error Status:', response.status);
-      console.error(
-        'API Error Headers:',
-        JSON.stringify([...response.headers.entries()])
-      );
       const text = await response.text();
       console.error('API Error Response:', text);
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Text Search Resp:', data);
+    // console.debug('Text Search Resp:', data);
 
     // Check if we need to make a new request with a different language code
-    if (
-      data.places &&
-      data.places.length > 0 &&
-      data.places[0].formattedAddress
-    ) {
+    if (data.places?.length > 0 && data.places[0].formattedAddress) {
       const place = data.places[0];
       const formattedAddress = place.formattedAddress;
-      // Extract country from the formatted address - usually the last part
       const addressParts = formattedAddress.split(', ');
-      const currentLanguageCode = place.displayName?.languageCode || 'en';
-      const country = {
-        name: addressParts[addressParts.length - 1],
-        code: currentLanguageCode,
-      };
-      console.log('Which country:', country);
+      const currentLanguageCode = place.displayName?.languageCode || langCode;
+      const country = addressParts[addressParts.length - 1];
 
       // Determine correct language code based on country
-      let correctLanguageCode = getLanguageCodeForCountry(country);
-
-      // If language code doesn't match and we have a correction, make another API call
+      let correctLanguageCode = getCountryLanguage(
+        country,
+        currentLanguageCode
+      );
       if (
         correctLanguageCode &&
         currentLanguageCode !== correctLanguageCode &&
-        !languageCode
+        !langCode
       ) {
-        console.log(`Search again with lang code: ${correctLanguageCode}`);
-
-        // Make a new request with the correct language code
+        console.debug(
+          `Which country: ${country} > Search again in: ${correctLanguageCode}`
+        );
         return PlaceTextSearch(query, correctLanguageCode);
       }
     }
-    return data.places;
+    const place_data = placeData(data.places);
+    place_data.location = query;
+    return place_data;
   } catch (error) {
     console.error('Error in text search:', error);
   }
 }
 
 /**
- * Search for nearby landmarks based on current map center and zoom level
- * Using the new Places API with AI-powered summaries
+ * Search for nearby landmarks using the new Places API
  */
-export async function PlaceNearbySearch(position, radius) {
-  // Get country information for the current location
-  let languageCode = null;
-  try {
-    const country = await getCountryFromCoordinates(position.lat, position.lng);
-    if (country) {
-      languageCode = getLanguageCodeForCountry(country);
-      if (languageCode) {
-        console.log(`Which country: ${country.name} > language: ${languageCode}`);
-      }
-    }
-  } catch (error) {
-    console.error('Error determining country:', error);
-    // Continue without country-specific language code
+export async function PlaceNearbySearch(
+  lat,
+  lon,
+  radius_km = 15,
+  maxResultCount = 10,
+  locale = 'en'
+) {
+  if (isTestMode()) {
+    console.log('Using test places (test mode enabled)');
+    const config = await getConfig();
+    return {
+      location: config?.defaults?.default_location?.name,
+      coordinates: [lat, lon],
+      landmarks: config?.test_mode?.test_landmarks || [],
+      cache_type: 'test_mode',
+    };
+  }
+
+  if (!getGoogleMapsApiKey()) {
+    throw new Error('Google Maps API key is not configured');
   }
 
   // URL for the Nearby Search (New) API endpoint
   const apiUrl = 'https://places.googleapis.com/v1/places:searchNearby';
-  const maxResultCount = 19;
+
+  // Headers including proper field mask
+  let fieldmask =
+    'places.displayName,places.location,places.primaryTypeDisplayName,places.formattedAddress';
+  // fieldmask += ',places.id,places.googleMapsLinks.placeUri';  // Place Details Pro $
+  // fieldmask += ',places.generativeSummary';  // AI-powered summaries - Place Details Enterprise $$
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': getGoogleMapsApiKey(),
+    'X-Goog-FieldMask': fieldmask,
+  };
 
   // Create request body for Nearby Search (New)
   const requestBody = {
+    locationRestriction: {
+      circle: {
+        center: {
+          latitude: lat,
+          longitude: lon,
+        },
+        radius: radius_km * 1000,
+      },
+    },
+    rankPreference: 'POPULARITY',
     includedTypes: [
       'historical_landmark',
       'tourist_attraction',
@@ -252,43 +324,12 @@ export async function PlaceNearbySearch(position, radius) {
       'bar',
       'stadium',
     ],
+    languageCode: locale,
     maxResultCount: maxResultCount,
-    locationRestriction: {
-      circle: {
-        center: {
-          latitude: position.lat,
-          longitude: position.lng,
-        },
-        radius: radius,
-      },
-    },
-    rankPreference: 'POPULARITY',
   };
-
-  // Add language code if available
-  if (languageCode) {
-    requestBody.languageCode = languageCode;
-  }
-
-  // Headers including proper field mask for AI-powered summaries
-  let fieldmask =
-    'places.id,places.displayName,places.location,places.generativeSummary';
-  if (maxResultCount > 5) {
-    fieldmask += ',places.types,places.primaryType';
-  } else {
-    fieldmask += ',places.googleMapsLinks.placeUri,places.primaryType';
-  }
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-    'X-Goog-FieldMask': fieldmask,
-  };
-
-  console.log('API Req:', JSON.stringify(requestBody));
 
   try {
-    // Make the API request using fetch
+    console.debug('Nearby Search Req:', requestBody);
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: headers,
@@ -297,18 +338,16 @@ export async function PlaceNearbySearch(position, radius) {
 
     if (!response.ok) {
       console.error('API Error Status:', response.status);
-      console.error(
-        'API Error Headers:',
-        JSON.stringify([...response.headers.entries()])
-      );
       const text = await response.text();
       console.error('API Error Response:', text);
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Nearby Search Resp:', data);
-    return data.places;
+    // console.debug('Nearby Search Resp:', data);
+    const place_data = placeData(data.places);
+    place_data.cache_type = 'nearby_places';
+    return place_data;
   } catch (error) {
     console.error('Error fetching landmarks:', error);
   }
