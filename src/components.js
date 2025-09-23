@@ -1,5 +1,6 @@
 import { landmarkService } from './interfaces.js';
 import { getSettings, SETTINGS_KEY } from './utils.js';
+import { i18n } from './lion.js';
 
 class CachingNotification {
   /**
@@ -146,7 +147,7 @@ class CachingNotification {
 export const cachingNotification = new CachingNotification();
 
 class SettingDialog {
-  constructor(defaultLang = 'en') {
+  constructor() {
     this.dialog = document.getElementById('settings-dialog');
     this.tableBody = this.dialog?.querySelector('#settings-table tbody');
     this.addBtn = this.dialog?.querySelector('#add-setting-btn');
@@ -156,23 +157,6 @@ class SettingDialog {
     // List of required API keys
     this.requiredKeys = ['GOOGLE_MAPS_API_KEY', 'OPENAI_API_KEY'];
     this.settings = {};
-
-    this.lang = defaultLang;
-    this.translations = {
-      en: {
-        GOOGLE_MAPS_API_KEY: 'Google Maps API Key',
-        OPENAI_API_KEY: 'OpenAI API Key',
-        new_setting_prompt: 'Enter the name for the new setting:',
-        duplicate_key_alert: 'This setting key already exists.',
-      },
-      'zh-HK': {
-        GOOGLE_MAPS_API_KEY: 'Google Maps API 金鑰',
-        OPENAI_API_KEY: 'OpenAI API Key',
-        new_setting_prompt: '輸入新設定名稱：',
-        duplicate_key_alert: '此設定鍵已存在。',
-      },
-    };
-
     this.setupListeners();
   }
 
@@ -185,13 +169,12 @@ class SettingDialog {
 
     this.tableBody?.addEventListener('click', (event) => {
       const deleteButton = event.target.closest('.icon-btn');
-      if (deleteButton && deleteButton.title === 'Delete Setting') {
+      if (deleteButton && deleteButton.dataset.action === 'delete-setting') {
         const keyToDelete = deleteButton.dataset.key;
-        if (
-          confirm(
-            `Are you sure you want to delete the "${keyToDelete}" setting?`
-          )
-        ) {
+        const confirmMessage = i18n.t('SettingDialog.delete_confirm', {
+          key: keyToDelete,
+        });
+        if (confirm(confirmMessage)) {
           delete this.settings[keyToDelete];
           this.save();
           this.renderTable();
@@ -200,10 +183,10 @@ class SettingDialog {
     });
 
     this.addBtn?.addEventListener('click', () => {
-      const newKey = prompt(this.t('new_setting_prompt'));
+      const newKey = prompt(i18n.t('SettingDialog.new_setting_prompt'));
       if (newKey && newKey.trim() !== '') {
         if (Object.prototype.hasOwnProperty.call(this.settings, newKey)) {
-          alert(this.t('duplicate_key_alert'));
+          alert(i18n.t('SettingDialog.duplicate_key_alert'));
         } else {
           this.settings[newKey] = '';
           this.save();
@@ -236,7 +219,9 @@ class SettingDialog {
       const tr = document.createElement('tr');
 
       const tdLabel = document.createElement('td');
-      tdLabel.textContent = this.t(key);
+      const str_key = `Settings.${key}`;
+      const str_value = i18n.t(str_key);
+      tdLabel.textContent = str_value === str_key ? key : str_value;
       tr.appendChild(tdLabel);
 
       const tdInput = document.createElement('td');
@@ -251,7 +236,9 @@ class SettingDialog {
 
       const delBtn = document.createElement('button');
       delBtn.className = 'icon-btn';
-      delBtn.title = 'Delete Setting';
+      delBtn.dataset.action = 'delete-setting';
+      delBtn.setAttribute('data-i18n-title', 'tooltips.delete_setting');
+      delBtn.title = i18n.t('tooltips.delete_setting');
       delBtn.dataset.key = key;
       delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.134H8.09a2.09 2.09 0 00-2.09 2.134v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
 
@@ -262,21 +249,7 @@ class SettingDialog {
     });
   }
 
-  applyTranslations() {
-    const dict = this.translations[this.lang] || this.translations.en;
-    this.dialog?.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      if (dict[key]) el.textContent = dict[key];
-    });
-  }
-
-  t(key) {
-    const dict = this.translations[this.lang] || this.translations.en;
-    return dict[key] || key;
-  }
-
   async show() {
-    this.applyTranslations();
     this.settings = getSettings();
     this.renderTable();
     this.dialog.classList.remove('hidden');
@@ -301,7 +274,6 @@ class SettingDialog {
           onClose();
         }
       };
-
       document.addEventListener('keydown', handleKeyDown, { once: true });
     });
   }
@@ -331,6 +303,4 @@ class SettingDialog {
   }
 }
 
-const browserLang = (navigator.language || 'en').toLowerCase();
-const defaultLang = browserLang.startsWith('zh') ? 'zh-HK' : 'en';
-export const settingDialog = new SettingDialog(defaultLang);
+export const settingDialog = new SettingDialog();

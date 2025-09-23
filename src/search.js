@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { getLocationCoord } from './gmap.js';
 import {
   getCachedLandmarks,
@@ -12,9 +11,11 @@ import {
   normalizeCoordValue,
   setLoading,
   handleError,
+  escapeHTML,
 } from './utils.js';
 import { landmarkService, mapInterface, isTestMode } from './interfaces.js';
 import { cachingNotification } from './components.js';
+import { i18n, setTooltip } from './lion.js';
 
 // DOM Elements
 const myLocationButton = document.getElementById('my-location');
@@ -58,8 +59,7 @@ export function initSearch() {
     return;
   }
 
-  window.addEventListener('CachingNotification_updated', async (event) => {
-    // console.debug('Landmarks updated at:', event.detail.timestamp);
+  window.addEventListener('CachingNotification_updated', async () => {
     const currentCenter = mapInterface.getMapCenter(map);
     if (
       Math.abs(currentCenter.lat - lastCenter.lat) < 0.1 &&
@@ -121,7 +121,7 @@ export async function searchLandmarks() {
     }
     if (landmarkData?.landmarks?.length > 0) {
       console.log(
-        `Found ${landmarkData.landmarks.length} landmarks`,
+        `🏛️ Found ${landmarkData.landmarks.length} landmarks`,
         landmarkData
       );
 
@@ -136,23 +136,42 @@ export async function searchLandmarks() {
 
       // Update URL parameters with current position
       updateUrlParameters();
-    } else handleError('No landmarks found in this area.');
+    } else handleError(i18n.t('errors.no_landmarks_found'));
   } catch (error) {
-    console.error('Error searching for landmarks:', error);
-    console.error('Error details:', error.message || 'Unknown error');
+    console.error(
+      'Error searching for landmarks:',
+      error.message || 'Unknown error'
+    );
 
     // Show error message
+    const connectionTitle = escapeHTML(
+      i18n.t('search.error.connection_title')
+    );
+    const connectionDescription = escapeHTML(
+      i18n.t('search.error.connection_description')
+    );
+    const networkIssue = escapeHTML(i18n.t('search.error.network_issue'));
+    const apiUnavailable = escapeHTML(
+      i18n.t('search.error.api_unavailable')
+    );
+    const connectionSuggestion = escapeHTML(
+      i18n.t('search.error.connection_suggestion')
+    );
+    const retryButtonText = escapeHTML(
+      i18n.t('search.error.retry_button')
+    );
+
     landmarksList.innerHTML = `
                 <div class="landmark-item error">
-                    <div class="landmark-name">Couldn't connect to service</div>
+                    <div class="landmark-name">${connectionTitle}</div>
                     <div class="landmark-summary">
-                        <p>There was a problem retrieving landmarks information. This could be due to:</p>
+                        <p>${connectionDescription}</p>
                         <ul>
-                            <li>Network connectivity issues</li>
-                            <li>API service temporarily unavailable</li>
+                            <li>${networkIssue}</li>
+                            <li>${apiUnavailable}</li>
                         </ul>
-                        <p>Please check your network connection and try again later.</p>
-                        <button id="retry-landmarks" class="btn">Try Again</button>
+                        <p>${connectionSuggestion}</p>
+                        <button id="retry-landmarks" class="btn">${retryButtonText}</button>
                     </div>
                 </div>
             `;
@@ -168,7 +187,6 @@ export async function searchLandmarks() {
     // Show landmarks panel with error
     landmarkSidebar.classList.remove('hidden');
     mapInterface.clearLandMarkers();
-    handleError('There was an error retrieving landmarks information.');
   } finally {
     setLoading(false);
   }
@@ -238,7 +256,6 @@ let lastLoc = null;
 async function searchText(query) {
   try {
     if (!query || query.trim() === '') {
-      handleError('Please enter a valid search query.');
       return;
     }
 
@@ -290,11 +307,10 @@ async function searchText(query) {
     if (locData) {
       await mapInterface.displayLandmarks(locData);
     } else {
-      handleError(`Location not found for "${query}"`);
+      handleError(i18n.t('errors.location_not_found'));
     }
   } catch (error) {
-    console.error('Error searching for text:', error);
-    handleError(`Error searching for "${query}": ${error.message}`);
+    console.error(`Error searching for "${query}": ${error.message}`);
   } finally {
     setLoading(false);
 
@@ -335,10 +351,10 @@ export function updateUrlParameters(pushState = false) {
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      handleError('Geolocation is not supported by your browser');
+      handleError(i18n.t('errors.geolocation_not_supported'));
       myLocationButton.disabled = true;
-      myLocationButton.title = 'Geolocation is not supported by your browser';
-      reject(new Error('Geolocation is not supported by your browser'));
+      setTooltip(myLocationButton, 'errors.geolocation_not_supported');
+      reject(new Error('Geolocation not supported'));
       return;
     }
 
@@ -350,8 +366,7 @@ function getCurrentPosition() {
         });
       },
       (error) => {
-        console.error(`Error with Geolocation: ${error.message}`);
-        handleError('Unable to get your Geolocation.');
+        handleError(i18n.t('errors.unable_to_get_geolocation'));
         reject(error);
       },
       {
@@ -363,13 +378,20 @@ function getCurrentPosition() {
   });
 }
 
+import { getLastKnownPosition } from './simconnect.js';
+
 /**
  * Get the user's current location and toggle between user location and last center
  */
 export async function getUserLocation() {
+  let userLocation, targetLocation;
+  let shouldShowMarker = false;
+
   // Step 1: Get current center and user location
   const currentCenter = mapInterface.getMapCenter(map);
-  const userLocation = await getCurrentPosition();
+  const aircraftPosition = getLastKnownPosition();
+  if (aircraftPosition) userLocation = aircraftPosition;
+  else userLocation = await getCurrentPosition();
 
   // Step 2: Check if at user location
   const isAtUserLocation =
@@ -377,9 +399,6 @@ export async function getUserLocation() {
     Math.abs(currentCenter.lng - userLocation.lng) < 0.1;
 
   // Step 3: Determine target location
-  let targetLocation;
-  let shouldShowMarker = false;
-
   if (isAtUserLocation && lastCenter) {
     // At user location → go to last center
     targetLocation = lastCenter;
@@ -387,7 +406,7 @@ export async function getUserLocation() {
     // Not at user location → save current as last center and go to user location
     lastCenter = currentCenter;
     targetLocation = userLocation;
-    shouldShowMarker = true;
+    shouldShowMarker = !aircraftPosition;
   }
 
   // Step 4: Pan to coordinate and show marker if needed

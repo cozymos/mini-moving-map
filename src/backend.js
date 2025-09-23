@@ -24,7 +24,9 @@ class LandmarkService {
       locationData.country,
       locationData.countryCode
     );
-    console.debug(`Which country: ${locationData.country} > locale: ${locale}`);
+    console.debug(
+      `Which country: ${locationData.country} > userLocale: ${locale}`
+    );
 
     let landmarkData = findByLocation(
       locationData.locationName,
@@ -100,22 +102,22 @@ class LandmarkService {
         error: 'Please enter a valid search query',
       };
 
+    // Get location details from coordinates
+    const locationData = await getLocationDetails(lat, lon);
+    const locale = getCountryLanguage(
+      locationData.country,
+      locationData.countryCode
+    );
+    console.debug(
+      `Which country: ${locationData.country} > userLocale: ${locale}`
+    );
+
     let locData = null;
     const urlParams = new URLSearchParams(window.location.search);
     if (!urlParams.has('gmp') && (use_gpt || urlParams.has('gpt'))) {
-      // Get location details from coordinates
-      const locationData = await getLocationDetails(lat, lon);
-      const locale = getCountryLanguage(
-        locationData.country,
-        locationData.countryCode
-      );
-      console.debug(
-        `Which country: ${locationData.country} > locale: ${locale}`
-      );
-
       locData = await queryLocationWithGPT(query, locale);
     } else {
-      locData = await PlaceTextSearch(query);
+      locData = await PlaceTextSearch(query, locale);
     }
 
     return locData;

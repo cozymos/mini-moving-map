@@ -363,9 +363,26 @@ body {
   border-bottom: 1px solid #eee;
 }
 
-.table-scollable {
-  flex-grow: 1; /* Allows the table area to fill available space */
-  overflow-y: auto; /* Enables vertical scrolling */
+.settings-bar-section {
+  flex: 1; /* Allows each section to take up equal space */
+  display: flex;
+  align-items: center;
+}
+
+.settings-bar-section.center {
+  justify-content: center;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.settings-bar-section.right {
+  justify-content: flex-end;
+}
+
+#settings-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
 }
 
 .icon-btn {
@@ -375,7 +392,7 @@ body {
   padding: 0.5rem;
   display: flex;
   align-items: center;
-  border-radius: 50%; /* Make the button's hover area circular */
+  border-radius: 50%; /* Make hover area circular */
   transition: background-color 0.2s; /* Smooth transition for hover */
 }
 
@@ -386,6 +403,20 @@ body {
 .icon-btn svg {
   width: 20px;
   height: 20px;
+}
+
+.transitional-message {
+  font-size: 1.5rem; /* Make the checkmark larger */
+  color: #28a745; /* Green color for success */
+  font-weight: bold;
+  height: 1rem;
+  opacity: 0; /* Start as invisible */
+  transition: opacity 0.3s ease-in-out;
+}
+
+.table-scollable {
+  flex-grow: 1; /* Allows the table area to fill available space */
+  overflow-y: auto; /* Enables vertical scrolling */
 }
 
 #settings-table {
@@ -412,15 +443,6 @@ body {
   padding: 0.5rem;
   font-size: 1rem;
   box-sizing: border-box; /* Important for width calculation */
-}
-
-.transitional-message {
-  font-size: 1.5rem; /* Make the checkmark larger */
-  color: #28a745; /* Green color for success */
-  font-weight: bold;
-  height: 1rem;
-  opacity: 0; /* Start as invisible */
-  transition: opacity 0.3s ease-in-out;
 }
 
 /* Utility Classes */

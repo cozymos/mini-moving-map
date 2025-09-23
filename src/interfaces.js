@@ -4,7 +4,7 @@ import { getSettings } from './utils.js';
 export function isTestMode() {
   if (!window.TEST_MODE)
     // vite --mode test
-    window.TEST_MODE = import.meta.env && import.meta.env.MODE === 'test';
+    window.TEST_MODE = import.meta.env?.MODE === 'test';
   return window.TEST_MODE;
 }
 
@@ -15,7 +15,9 @@ export function enableTestMode(flag) {
 export function getGoogleMapsApiKey() {
   if (!window.APP_CONFIG?.GOOGLE_MAPS_API_KEY) {
     window.APP_CONFIG.GOOGLE_MAPS_API_KEY =
-      getSettings()['GOOGLE_MAPS_API_KEY'];
+      import.meta.env?.VITE_GOOGLE_MAPS_API_KEY
+        ? import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+        : getSettings()['GOOGLE_MAPS_API_KEY'];
   }
 
   return window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
@@ -23,7 +25,10 @@ export function getGoogleMapsApiKey() {
 
 export function getOpenaiApiKey() {
   if (!window.APP_CONFIG?.OPENAI_API_KEY) {
-    window.APP_CONFIG.OPENAI_API_KEY = getSettings()['OPENAI_API_KEY'];
+    window.APP_CONFIG.OPENAI_API_KEY =
+      import.meta.env?.VITE_OPENAI_API_KEY
+        ? import.meta.env.VITE_OPENAI_API_KEY
+        : getSettings()['OPENAI_API_KEY'];
   }
 
   return window.APP_CONFIG.OPENAI_API_KEY;
@@ -32,9 +37,7 @@ export function getOpenaiApiKey() {
 class MapInterface {
   constructor() {
     console.log(
-      `${
-        import.meta.env ? import.meta.env.MODE : 'server'
-      } mode: Google Maps loading...`
+      `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
     );
     this.mapFns = {
       getMapCenter: () => ({ lat: 0, lng: 0 }),

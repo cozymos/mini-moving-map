@@ -19,6 +19,9 @@ const location_index = {};
  * @returns {string} Cache key
  */
 function getCacheKey(lat, lng, radius) {
+  // Round coordinates to generate cache keys that allow proximity matching
+  // 1 decimal place: ≈ 11.1 km (Can locate a large city or district).
+  // 2 decimal places: ≈ 1.11 km (Can locate a town or village).
   const roundedLat = lat.toFixed(1);
   const roundedLng = lng.toFixed(1);
   const roundedRadius = Math.round(radius);

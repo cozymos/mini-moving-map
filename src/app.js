@@ -9,17 +9,28 @@ import {
   normalizeLng,
   validateCoords,
 } from './utils.js';
-import {
-  mapInterface,
-  getGoogleMapsApiKey,
-} from './interfaces.js';
+import { mapInterface, getGoogleMapsApiKey } from './interfaces.js';
 import { settingDialog } from './components.js';
+import { initSimConnect, toggleAircraftTracking } from './simconnect.js';
+import { i18n, initi18n, updateTranslation } from './lion.js';
+
+const translationMap = {
+  // mapping DOM selectors to translation keys
+  '.loading-text': { property: 'textContent', key: 'app.loading_text' },
+  '.caching-text': { property: 'textContent', key: 'app.caching_text' },
+  'input#search-input': {
+    property: 'placeholder',
+    key: 'app.search_placeholder',
+  },
+};
 
 // DOM Elements
 const mapElement = document.getElementById('map');
 const myLocationButton = document.getElementById('my-location');
 const searchLandmarksButton = document.getElementById('search-landmarks');
+const aircraftTrackingButton = document.getElementById('aircraft-tracking');
 const settingsButton = document.getElementById('settings-button');
+const localeButton = document.getElementById('locale-button');
 const searchSideBar = document.getElementById('search-bar-container');
 const landmarkSidebar = document.getElementById('landmarks-sidebar');
 
@@ -49,7 +60,7 @@ async function initMap() {
       center: urlParams.center,
       zoom: urlParams.zoom !== null ? urlParams.zoom : defaultZoom,
     };
-    console.log('URL params:', initialPosition);
+    console.debug('URL params:', initialPosition);
   } else {
     const config = await getConfig();
     if (config?.defaults?.default_location) {
@@ -121,14 +132,13 @@ async function initMap() {
 
   // Make map instance globally available for other scripts
   window.mapInstance = map;
-
-  setupCustomControl();
   mapInterface.setMapInterface({
     getMapCenter,
     mapPanTo,
   });
   initSearch();
   initLandmark();
+  setupCustomControl();
 
   // Hide loading indicator
   setLoading(false);
@@ -137,7 +147,7 @@ async function initMap() {
 /**
  * Set up custom controls
  */
-function setupCustomControl() {
+async function setupCustomControl() {
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(myLocationButton);
   myLocationButton.addEventListener('click', async () => {
     await markUserLocation();
@@ -151,10 +161,30 @@ function setupCustomControl() {
     await searchLandmarks();
   });
 
+  if (await initSimConnect(map)) {
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
+      aircraftTrackingButton
+    );
+    aircraftTrackingButton.addEventListener('click', async () => {
+      await toggleAircraftTracking();
+    });
+  }
+
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(settingsButton);
   settingsButton.addEventListener('click', async () => {
     await settingDialog.show();
   });
+
+  if (i18n.lang.secondLocale) {
+    map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(localeButton);
+    localeButton.addEventListener('click', async () => {
+      if (i18n.userLocale === i18n.lang.preferLocale)
+        i18n.userLocale = i18n.lang.secondLocale;
+      else i18n.userLocale = i18n.lang.preferLocale;
+      // await updateTranslation();
+      await applyTranslations();
+    });
+  }
 }
 
 /**
@@ -178,12 +208,12 @@ async function markUserLocation() {
       new AdvancedMarkerElement({
         position: targetLocation,
         map: map,
-        title: 'Your Location',
+        title: i18n.t('tooltips.user_location_marker'),
         content: createUserLocationMarker(),
       });
     }
   } catch (error) {
-    handleError(`Error with location: ${error.message}`);
+    console.error(`Error with Geolocation: ${error.message}`);
   }
 }
 
@@ -202,7 +232,7 @@ export function mapPanTo(lat, lng, zoom = defaultZoom) {
   }
 
   map.panTo({ lat: lat, lng: lng });
-  map.setZoom(zoom);
+  map.setZoom(zoom ? zoom : map.getZoom());
 }
 
 // Load Google Maps API dynamically
@@ -226,14 +256,38 @@ function loadGoogleMapsAPI() {
   };
 }
 
+async function applyTranslations() {
+  Object.entries(translationMap).forEach(([selector, { property, key }]) => {
+    document.querySelectorAll(selector).forEach((el) => {
+      if (property in el || property === 'textContent') {
+        el[property] = i18n.t(key);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-i18n-text]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-text');
+    const str_value = i18n.t(key);
+    el.textContent = str_value === key ? '' : str_value;
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-title');
+    el.title = i18n.t(key); // Set title for tooltips
+  });
+}
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
+  await initi18n();
   await settingDialog.require();
   if (!getGoogleMapsApiKey()) {
-    console.error('Google Maps API key not found.');
+    handleError('Google Maps API key is not configured');
     return;
   }
 
   // Load Google Maps API
   loadGoogleMapsAPI();
+  await updateTranslation();
+  await applyTranslations();
 });

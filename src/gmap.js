@@ -1,6 +1,7 @@
 import { getConfig, validateCoords } from './utils.js';
 import { isTestMode, getGoogleMapsApiKey } from './interfaces.js';
 import { getCountryLanguage } from './lion.js';
+import { i18n } from './lion.js';
 
 // Simple location cache to reduce API calls
 const locationCache = {};
@@ -151,14 +152,16 @@ export async function getLocationCoord(locationName) {
 
 function placeData(places) {
   const place_data = { landmarks: [] };
-  place_data.landmarks = places.map((field) => ({
-    name: field.displayName?.text || 'Unknown place',
-    desc: field.generativeSummary?.overview?.text,
-    lat: field.location.latitude,
-    lon: field.location.longitude,
-    type: field.primaryTypeDisplayName?.text,
-    loc: field.formattedAddress,
-  }));
+  if (places && places.length > 0) {
+    place_data.landmarks = places.map((field) => ({
+      name: field.displayName?.text || 'Unknown place',
+      desc: field.generativeSummary?.overview?.text,
+      lat: field.location.latitude,
+      lon: field.location.longitude,
+      type: field.primaryTypeDisplayName?.text,
+      loc: field.formattedAddress,
+    }));
+  }
   return place_data;
 }
 
@@ -218,17 +221,20 @@ export async function PlaceTextSearch(
     });
 
     if (!response.ok) {
-      console.error('API Error Status:', response.status);
       const text = await response.text();
       console.error('API Error Response:', text);
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      throw new Error(`API status: ${response.status}`);
     }
 
     const data = await response.json();
     // console.debug('Text Search Resp:', data);
 
     // Check if we need to make a new request with a different language code
-    if (data.places?.length > 0 && data.places[0].formattedAddress) {
+    if (
+      !langCode &&
+      data.places?.length > 0 &&
+      data.places[0].formattedAddress
+    ) {
       const place = data.places[0];
       const formattedAddress = place.formattedAddress;
       const addressParts = formattedAddress.split(', ');
@@ -236,22 +242,15 @@ export async function PlaceTextSearch(
       const country = addressParts[addressParts.length - 1];
 
       // Determine correct language code based on country
-      let correctLanguageCode = getCountryLanguage(
-        country,
-        currentLanguageCode
-      );
-      if (
-        correctLanguageCode &&
-        currentLanguageCode !== correctLanguageCode &&
-        !langCode
-      ) {
+      let correctLanguageCode = getCountryLanguage(country);
+      if (correctLanguageCode && currentLanguageCode !== correctLanguageCode) {
         console.debug(
           `Which country: ${country} > Search again in: ${correctLanguageCode}`
         );
         return PlaceTextSearch(query, correctLanguageCode);
       }
     }
-    const place_data = placeData(data.places);
+    const place_data = placeData(data?.places);
     place_data.location = query;
     return place_data;
   } catch (error) {
@@ -267,7 +266,7 @@ export async function PlaceNearbySearch(
   lon,
   radius_km = 15,
   maxResultCount = 10,
-  locale = 'en'
+  langCode = i18n.lang.preferLangCode
 ) {
   if (isTestMode()) {
     console.log('Using test places (test mode enabled)');
@@ -324,7 +323,7 @@ export async function PlaceNearbySearch(
       'bar',
       'stadium',
     ],
-    languageCode: locale,
+    languageCode: langCode,
     maxResultCount: maxResultCount,
   };
 
@@ -337,15 +336,14 @@ export async function PlaceNearbySearch(
     });
 
     if (!response.ok) {
-      console.error('API Error Status:', response.status);
       const text = await response.text();
       console.error('API Error Response:', text);
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      throw new Error(`API status: ${response.status}`);
     }
 
     const data = await response.json();
     // console.debug('Nearby Search Resp:', data);
-    const place_data = placeData(data.places);
+    const place_data = placeData(data?.places);
     place_data.cache_type = 'nearby_places';
     return place_data;
   } catch (error) {

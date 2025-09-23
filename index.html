@@ -87,18 +87,40 @@
     <div id="map"></div>
 
     <!-- Custom Controls -->
-    <button id="my-location" class="control-button" title="My Location">
+    <button
+      id="my-location"
+      class="control-button"
+      data-i18n-title="tooltips.my_location"
+    >
       📍
     </button>
     <button
       id="search-landmarks"
       class="control-button"
-      title="Search Landmarks"
+      data-i18n-title="tooltips.search_landmarks"
     >
       🏛️
     </button>
-    <button id="settings-button" class="control-button" title="Settings">
+    <button
+      id="aircraft-tracking"
+      class="control-button"
+      data-i18n-title="tooltips.aircraft_tracking_start"
+    >
+      ✈️
+    </button>
+    <button
+      id="settings-button"
+      class="control-button"
+      data-i18n-title="tooltips.settings"
+    >
       ⚙️
+    </button>
+    <button
+      id="locale-button"
+      class="control-button"
+      data-i18n-title="tooltips.my_locale"
+    >
+      🌐
     </button>
 
     <!-- Search Bar -->
@@ -111,12 +133,18 @@
             id="search-input"
             name="landmark location"
             list="search-history"
-            placeholder="Search location…"
+            placeholder=""
             autocomplete="on"
           />
           <!-- on-demand display of saved location -->
           <datalist id="search-history"></datalist>
-          <button id="search-button" type="submit" title="Search">🔍</button>
+          <button
+            id="search-button"
+            type="submit"
+            data-i18n-title="tooltips.search_location"
+          >
+            🔍
+          </button>
         </div>
       </form>
     </div>
@@ -124,7 +152,9 @@
     <!-- Landmarks Sidebar -->
     <div id="landmarks-sidebar" class="hidden">
       <div id="landmarks-header">
-        <button id="close-landmarks" title="Close">&times;</button>
+        <button id="close-landmarks" data-i18n-title="tooltips.close_landmarks">
+          &times;
+        </button>
       </div>
       <div id="landmarks-list"></div>
     </div>
@@ -140,7 +170,11 @@
       <div class="caching-content">
         <div class="caching-spinner"></div>
         <div class="caching-text">Finding landmarks…</div>
-        <button id="dismiss-caching" class="dismiss-button" title="Dismiss">
+        <button
+          id="dismiss-caching"
+          class="dismiss-button"
+          data-i18n-title="tooltips.dismiss_caching"
+        >
           &times;
         </button>
       </div>
@@ -153,37 +187,57 @@
     <div id="settings-dialog" class="settings-overlay hidden">
       <div class="settings-content">
         <div class="settings-bar">
-          <button id="add-setting-btn" class="icon-btn" title="Add New Setting">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
+          <div class="settings-bar-section">
+            <button
+              id="add-setting-btn"
+              class="icon-btn"
+              data-i18n-title="tooltips.add_setting"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-          </button>
-          <div id="status-message" class="transitional-message">✓</div>
-          <button id="close-btn" class="icon-btn" title="Close">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="settings-bar-section center">
+            <h2
+              id="settings-title"
+              data-i18n-text="SettingDialog.settings_title"
+            ></h2>
+            <div id="status-message" class="transitional-message">✓</div>
+          </div>
+
+          <div class="settings-bar-section right">
+            <button
+              id="close-btn"
+              class="icon-btn"
+              data-i18n-title="tooltips.close_settings"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="table-scollable">
@@ -200,7 +254,7 @@
         jsonConfig_url: '/config.json',
         GOOGLE_MAPS_API_KEY: '%VITE_GOOGLE_MAPS_API_KEY%',
         OPENAI_API_KEY: '%VITE_OPENAI_API_KEY%',
-        GOOGLE_MAP_ID: 'f61a40c10abb6e5a61bdfb74',
+        GOOGLE_MAP_ID: '%VITE_GOOGLE_MAP_ID%',
         CACHE_TTL_HOURS: 48,
       };
     </script>
@@ -210,7 +264,7 @@
 
     <!-- Frontend Test Runner (loads after main application) -->
     <script type="module">
-      // loads dev-specific code
+      // loads dev-specific code (excluded from production bundle)
       if (!import.meta.env || import.meta.env.DEV) {
         import('/src/test_runner1.js')
           .then(() => {})

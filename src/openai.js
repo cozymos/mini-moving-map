@@ -2,6 +2,7 @@ import { getConfig, distance_km } from './utils.js';
 import { GetPrompt, GetSystemMessage } from './prompt_utils.js';
 import { getLocationCoord } from './gmap.js';
 import { isTestMode, getOpenaiApiKey } from './interfaces.js';
+import { i18n } from './lion.js';
 
 // Implement a hydrid '3-3-3' Multi-Source Aggregation Cache:
 // 1. show [first 3] from 10x list {places_a}, which is popularity-based
@@ -14,7 +15,7 @@ export async function selectLandmarksWithGPT(
   lat,
   lon,
   radius_km = 15,
-  locale = 'en'
+  locale = i18n.lang.preferLocale
 ) {
   // Check if OpenAI API key is available
   if (!getOpenaiApiKey()) {
@@ -43,15 +44,15 @@ export async function selectLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const source = 'gpt-4.1-nano';
+    const model = 'gpt-4.1-nano';
     console.info(
-      `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${source} in ${locale}`
+      `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${model} in ${locale}`
     );
-    let landmarks_json = await callOpenAI(source, systemMsg, prompt);
+    let landmarks_json = await callOpenAI(model, systemMsg, prompt);
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
       throw new Error(
-        `No landmarks found or invalid JSON response from ${source}`
+        `No landmarks found or invalid JSON response from ${model}`
       );
     }
 
@@ -85,18 +86,15 @@ export async function selectLandmarksWithGPT(
       const landmark = {
         name: landmarkName,
         local: item.local || '',
-        name2: item.name2 || '',
         desc: item.description || '',
         lat: parseFloat(landmarkLat),
         lon: parseFloat(landmarkLon),
         loc: item.location || locationData.locationName,
-        type: samePlace?.type || item.type || source,
+        type: samePlace?.type || item.type || model,
       };
 
       landmarks.push(landmark);
-      console.debug(
-        `Pick ${i}: ${landmarkName} . ${landmark.local} . ${landmark.name2}`
-      );
+      console.debug(`Pick ${i}: ${landmarkName} . ${landmark.local}`);
     }
 
     return {
@@ -117,7 +115,7 @@ export async function getLandmarksWithGPT(
   lat,
   lon,
   radius_km = 15,
-  locale = 'en'
+  locale = i18n.lang.preferLocale
 ) {
   if (isTestMode()) {
     console.log('Using test landmarks (test mode enabled)');
@@ -148,15 +146,15 @@ export async function getLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const source = 'gpt-4o-mini';
+    const model = 'gpt-4o-mini';
     console.info(
-      `Getting landmarks in ${locale} from ${source} near ${locationData.locationName} within ${radius_km}km`
+      `Getting landmarks in ${locale} from ${model} near ${locationData.locationName} within ${radius_km}km`
     );
-    let landmarks_json = await callOpenAI(source, systemMsg, prompt);
+    let landmarks_json = await callOpenAI(model, systemMsg, prompt);
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
       throw new Error(
-        `No landmarks found or invalid JSON response from ${source}`
+        `No landmarks found or invalid JSON response from ${model}`
       );
     }
 
@@ -183,12 +181,11 @@ export async function getLandmarksWithGPT(
       const landmark = {
         name: landmarkName,
         local: item.local || '',
-        name2: item.name2 || '',
         desc: item.description || '',
         lat: parseFloat(landmarkLat),
         lon: parseFloat(landmarkLon),
         loc: item.location || locationData.locationName,
-        type: item.type || source,
+        type: item.type || model,
       };
 
       landmarks.push(landmark);
@@ -210,7 +207,10 @@ export async function getLandmarksWithGPT(
 }
 
 // Discover the most relevant location name from a natural language query
-export async function queryLocationWithGPT(query, locale) {
+export async function queryLocationWithGPT(
+  query,
+  locale = i18n.lang.preferLocale
+) {
   if (isTestMode()) {
     console.log('Using test location (test mode enabled)');
     const config = await getConfig();
@@ -236,12 +236,40 @@ export async function queryLocationWithGPT(query, locale) {
     }
 
     // console.debug('Prompting:', prompt.slice(0, 100));
-    let source = 'gpt-4.1-mini';
-    const loc_data = await callOpenAI(source, systemMsg, prompt);
+    let model = 'gpt-4.1-mini';
+    const loc_data = await callOpenAI(model, systemMsg, prompt);
     return { location: query, landmarks: [loc_data] };
   } catch (error) {
     console.error('Error getting landmarks:', error);
     throw error;
+  }
+}
+
+export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
+  try {
+    if (!getOpenaiApiKey()) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    const prompt = GetPrompt('translations.json_resource', {
+      source_strings: srcJSON,
+      source_lang: srcLocale,
+      target_lang: tgtLocale,
+    });
+
+    const systemMsg = GetSystemMessage('translator');
+    if (!prompt || !systemMsg) {
+      throw new Error('Failed to load prompt templates');
+    }
+
+    // console.debug('Prompting:', prompt.slice(0, 100));
+    let model = 'gpt-4.1-mini';
+    console.info(`🌐 Auto translating ${srcLocale} ➜ ${tgtLocale} by ${model}`);
+    const tgtJSON = await callOpenAI(model, systemMsg, prompt);
+    return tgtJSON;
+  } catch (error) {
+    console.error('Error in auto translation:', error);
+    return null;
   }
 }
 

@@ -1,7 +1,9 @@
 /* eslint-disable no-undef */
 import { getWikiImageURL } from './services.js';
-import { validateCoords } from './utils.js';
+import { validateCoords, escapeHTML } from './utils.js';
 import { mapInterface } from './interfaces.js';
+import { getLastKnownPosition, fetchAircraftData } from './simconnect.js';
+import { i18n, setTooltip } from './lion.js';
 
 // DOM Elements
 const landmarkSidebar = document.getElementById('landmarks-sidebar');
@@ -211,7 +213,7 @@ function createMarkerElement(title) {
  * @param {number} lng - Longitude
  * @param {string} placeName - Name of the place
  */
-function create3DMapOverlay(lat, lng, placeName) {
+export function create3DMapOverlay(lat, lng, placeName) {
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
   overlay.style.top = '0';
@@ -272,7 +274,7 @@ function create3DMapOverlay(lat, lng, placeName) {
   infoOverlay.appendChild(titleEl);
   infoOverlay.appendChild(closeButton);
   mapContainer.appendChild(infoOverlay);
-  
+
   // Initialize photorealistic 3D map with Map mode support
   setTimeout(async () => {
     try {
@@ -312,7 +314,7 @@ function create3DMapOverlay(lat, lng, placeName) {
       const modeToggleButton = document.createElement('button');
       modeToggleButton.className = 'control-button';
       modeToggleButton.innerHTML = '🏷️';
-      modeToggleButton.title = 'Hide labels';
+      setTooltip(modeToggleButton, 'tooltips.hide_labels');
       modeToggleButton.style.position = 'absolute';
       modeToggleButton.style.top = '10px';
       modeToggleButton.style.right = '0px';
@@ -327,12 +329,12 @@ function create3DMapOverlay(lat, lng, placeName) {
           // Switch to HYBRID (labels on)
           map3DElement.mode = MapMode.HYBRID;
           currentMode = MapMode.HYBRID;
-          modeToggleButton.title = 'Hide labels';
+          setTooltip(modeToggleButton, 'tooltips.hide_labels');
         } else {
           // Switch to SATELLITE (labels off)
           map3DElement.mode = MapMode.SATELLITE;
           currentMode = MapMode.SATELLITE;
-          modeToggleButton.title = 'Show labels';
+          setTooltip(modeToggleButton, 'tooltips.show_labels');
         }
       });
 
@@ -340,7 +342,7 @@ function create3DMapOverlay(lat, lng, placeName) {
       const animationButton = document.createElement('button');
       animationButton.className = 'control-button';
       animationButton.innerHTML = '🎬';
-      animationButton.title = 'Replay Animation';
+      setTooltip(animationButton, 'tooltips.replay_animation');
       animationButton.style.position = 'absolute';
       animationButton.style.top = '60px';
       animationButton.style.right = '0px';
@@ -376,6 +378,60 @@ function create3DMapOverlay(lat, lng, placeName) {
       mapContainer.appendChild(modeToggleButton);
       mapContainer.appendChild(animationButton);
 
+      if (getLastKnownPosition()) {
+        // Create aircraft tracking button
+        const aircraftButton = document.createElement('button');
+        aircraftButton.id = 'aircraft-tracking';
+        aircraftButton.className = 'control-button';
+        aircraftButton.innerHTML = '✈️';
+        setTooltip(aircraftButton, 'tooltips.teleport_to_aircraft');
+        aircraftButton.style.position = 'absolute';
+        aircraftButton.style.top = '10px';
+        aircraftButton.style.right = '90px';
+        aircraftButton.style.zIndex = '1000';
+
+        // Add click handler for one-time sync with aircraft position
+        aircraftButton.addEventListener('click', async () => {
+          try {
+            const aircraftData = await fetchAircraftData();
+            if (aircraftData && aircraftData.connected !== false) {
+              // Calculate camera position close to aircraft
+              const altitude = Math.max(100, aircraftData.altitude || 500);
+              const tilt = 75; // Looking forward from aircraft
+              const range = 500; // Close to aircraft for FPV feel
+
+              const cameraConfig = {
+                center: {
+                  lat: aircraftData.latitude,
+                  lng: aircraftData.longitude,
+                  altitude: altitude,
+                },
+                tilt: tilt,
+                heading: aircraftData.heading || 0, // Use aircraft heading
+                range: range,
+              };
+
+              // Teleport to aircraft position
+              map3DElement.flyCameraTo({
+                endCamera: cameraConfig,
+                durationMillis: 1500,
+              });
+
+              console.debug('Camera synced to aircraft:', {
+                lat: aircraftData.latitude.toFixed(3),
+                lng: aircraftData.longitude.toFixed(3),
+                alt: altitude.toFixed(1),
+                heading: (aircraftData.heading || 0).toFixed(1),
+              });
+            }
+          } catch (error) {
+            console.error('Failed to sync with aircraft:', error);
+          }
+        });
+
+        mapContainer.appendChild(aircraftButton);
+      }
+
       // Function to start auto fly-around animation
       const startAutoAnimation = () => {
         try {
@@ -393,51 +449,6 @@ function create3DMapOverlay(lat, lng, placeName) {
           console.error('Auto fly-around failed:', error);
         }
       };
-
-      // 1. gmp-load event never received (doesn't work)
-      map3DElement.addEventListener('gmp-load', () => {
-        // map is ready
-        console.debug('3D Map gmp-load event for:', placeName);
-
-        // Remove loading indicator
-        if (loadingDiv && loadingDiv.parentElement) {
-          loadingDiv.remove();
-        }
-
-        // startAutoAnimation();
-        // setTimeout(add3DMarkersAndPopovers, 500);
-      });
-
-      // 2. Backup method: Poll for map readiness and start animation
-      let pollAttempts = 0;
-      const maxPollAttempts = 20;
-
-      const pollForMapReady = () => {
-        pollAttempts++;
-        if (pollAttempts > maxPollAttempts) {
-          return;
-        }
-
-        // Check if map has animation methods available
-        if (typeof map3DElement.flyCameraAround === 'function') {
-          console.debug('3D Map ready for animation:', placeName);
-
-          // Remove loading indicator
-          if (loadingDiv && loadingDiv.parentElement) {
-            loadingDiv.remove();
-          }
-
-          // Start auto animation
-          startAutoAnimation();
-          setTimeout(add3DMarkersAndPopovers, 500);
-        } else {
-          // Continue polling
-          setTimeout(pollForMapReady, 500);
-        }
-      };
-
-      // Start polling after a short delay
-      setTimeout(pollForMapReady, 1000);
 
       // Add 3D markers and popovers for existing landmarks
       const add3DMarkersAndPopovers = async () => {
@@ -521,6 +532,45 @@ function create3DMapOverlay(lat, lng, placeName) {
         }
       };
 
+      // 1. gmp-load event per official doc (doesn't work never received)
+      map3DElement.addEventListener('gmp-load', () => {
+        // map is ready
+        if (loadingDiv && loadingDiv.parentElement) {
+          loadingDiv.remove();
+        }
+
+        // startAutoAnimation();
+        // setTimeout(add3DMarkersAndPopovers, 500);
+      });
+
+      // 2. Backup method: Poll for map readiness and start animation
+      let pollAttempts = 0;
+      const maxPollAttempts = 20;
+      const pollForMapReady = () => {
+        pollAttempts++;
+        if (pollAttempts > maxPollAttempts) {
+          return;
+        }
+
+        // Check if map has animation methods available
+        if (typeof map3DElement.flyCameraAround === 'function') {
+          // 3D animation ready
+          if (loadingDiv && loadingDiv.parentElement) {
+            loadingDiv.remove();
+          }
+
+          // Start auto animation
+          startAutoAnimation();
+          setTimeout(add3DMarkersAndPopovers, 500);
+        } else {
+          // Continue polling
+          setTimeout(pollForMapReady, 500);
+        }
+      };
+
+      // Start polling for normal animation after a short delay
+      setTimeout(pollForMapReady, 1000);
+
       map3DElement.addEventListener('gmp-error', (event) => {
         console.error('3D Map error:', event.detail);
         throw new Error('Map3DElement failed to load');
@@ -549,6 +599,22 @@ function create3DMapOverlay(lat, lng, placeName) {
       console.error('Failed to create 3D Map:', error);
 
       // Show clear error message without fallback
+      const overlayTitle = escapeHTML(
+        i18n.t('landmark.overlay.load_failed_title')
+      );
+      const fallbackDescription = i18n.t(
+        'landmark.overlay.load_failed_description'
+      );
+      const overlayDescription = escapeHTML(
+        error.message || fallbackDescription
+      );
+      const overlayDetails = escapeHTML(
+        i18n.t('landmark.overlay.load_failed_details')
+      );
+      const closeButtonText = escapeHTML(
+        i18n.t('landmark.overlay.close_button')
+      );
+
       mapContainer.innerHTML = `
         <div style="
           position: absolute;
@@ -564,15 +630,12 @@ function create3DMapOverlay(lat, lng, placeName) {
           max-width: 350px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         ">
-          <div style="margin-bottom: 15px; font-weight: bold; font-size: 16px;">3D Map Failed to Load</div>
+          <div style="margin-bottom: 15px; font-weight: bold; font-size: 16px;">${overlayTitle}</div>
           <div style="font-size: 14px; margin-bottom: 10px; opacity: 0.9; line-height: 1.4;">
-            ${
-              error.message ||
-              'The photorealistic 3D view could not be initialized.'
-            }
+            ${overlayDescription}
           </div>
           <div style="font-size: 12px; margin-bottom: 20px; opacity: 0.7; line-height: 1.3;">
-            This may be due to browser compatibility, network issues, or Google Maps 3D beta access limitations.
+            ${overlayDetails}
           </div>
           <button onclick="this.parentElement.parentElement.querySelector('.close-button').click()" style="
             background: white;
@@ -583,25 +646,11 @@ function create3DMapOverlay(lat, lng, placeName) {
             cursor: pointer;
             font-weight: bold;
             font-size: 14px;
-          ">Close 3D View</button>
+          ">${closeButtonText}</button>
         </div>
       `;
     }
   }, 300);
-
-  // Close overlay function
-  const closeOverlay = () => {
-    document.body.removeChild(overlay);
-  };
-
-  closeButton.addEventListener('click', closeOverlay);
-
-  // Allow closing by clicking outside the map (on the map container)
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      closeOverlay();
-    }
-  });
 
   overlay.appendChild(mapContainer);
   document.body.appendChild(overlay);
@@ -635,7 +684,7 @@ function create3DIconOverlay(imageContainer, lat, lng, placeName) {
     z-index: 10;
   `;
   iconOverlay.textContent = '3D';
-  iconOverlay.title = 'View in 3D';
+  setTooltip(iconOverlay, 'tooltips.view_in_3d');
 
   iconOverlay.addEventListener('mouseover', () => {
     iconOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
@@ -677,6 +726,13 @@ function createImageOverlay(imageUrl) {
   overlay.addEventListener('click', () => {
     document.body.removeChild(overlay);
   });
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+      document.body.removeChild(overlay);
+    }
+  };
+  document.addEventListener('keydown', handleKeyDown, { once: true });
 
   overlay.appendChild(largeImage);
   document.body.appendChild(overlay);
@@ -796,8 +852,8 @@ function createSidebarElement(landmark, index) {
     }
     <div class="landmark-photo-container"></div>
     ${
-      landmark.name2
-        ? `<div class="landmark-address">${landmark.name2}</div>`
+      landmark.local && landmark.local != landmark.name
+        ? `<div class="landmark-address">${landmark.local}</div>`
         : ''
     }
   `;

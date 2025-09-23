@@ -17,12 +17,11 @@ For each landmark, return:
 - 'lat': landmark's latitude
 - 'lon': landmark's longitude
 - 'type': what's kind of landmark (Historical, Natural, Cultural, Architecture, Tourist attraction, etc)
-- 'name2': landmark and location names (space delimited) in my secondary locale: zh-HK
 
 Return ONLY the top 3 most important and interesting landmarks, ordered by relevance.
 
 Format the response as a valid JSON object with a "landmarks" field containing an array of objects.
-Each object should have the fields shown above.  Respond in my primary locale code: {locale}
+Each object should have the fields shown above.  Respond in my preferred locale: {locale}
 
 Example format:
 {
@@ -35,7 +34,6 @@ Example format:
       "lat": 37.775,
       "lon": -122.419,
       "type": "Tourist attraction",
-      "name2": "金門橋 三藩市 加州 美國"
     },
     {
       "name": "Victoria Harbour",
@@ -44,11 +42,10 @@ Example format:
       "location": "Kowloon, Hong Kong",
       "lat": 22.2968,
       "lon": 114.1694,
-      "type": "觀光景點",
-      "name2": "維多利亞港 九龍 香港"
+      "type": "Tourist attraction",
     }
   ]
-}`
+}`,
     },
     selector: {
       template: `Please select the top 3 most interesting landmarks from the following list:
@@ -66,10 +63,9 @@ For each of the six landmarks, return:
 - 'lat': landmark's latitude
 - 'lon': landmark's longitude
 - 'type': what's kind of landmark (Historical, Natural, Cultural, Architecture, Tourist attraction, etc)
-- 'name2': landmark and location names (space delimited) in my secondary locale: zh-HK
 
 Format the response as a valid JSON object with a "landmarks" field containing an array of objects.
-Each object should have the fields shown above.  Respond in my primary locale code: {locale}
+Each object should have the fields shown above.  Respond in my preferred locale: {locale}
 
 Example format:
 {
@@ -82,7 +78,6 @@ Example format:
       "lat": 37.775,
       "lon": -122.419,
       "type": "Tourist attraction",
-      "name2": "金門橋 三藩市 加州 美國"
     },
     {
       "name": "Victoria Harbour",
@@ -91,25 +86,84 @@ Example format:
       "location": "Kowloon, Hong Kong",
       "lat": 22.2968,
       "lon": 114.1694,
-      "type": "觀光景點",
-      "name2": "維多利亞港 九龍 香港"
+      "type": "Tourist attraction",
     }
   ]
-}`
+}`,
+    },
+    airport: {
+      template: `Generate a list of airports nearby coordinates: {lat}, {lon}.
+Include any uncontrolled airport in {location_name}.
+
+For each airport, return:
+- 'name': the official name to show on a map, and nothing else
+- 'local': airport name and its location in the native language of its country
+- 'description': a brief but informative summary (2-3 sentences, max 100 words)
+- 'location': where is the airport (city/region, state/province, country), not street address
+- 'lat': airport's latitude
+- 'lon': airport's longitude
+- 'type': ICAO code of the airport in 4-letter (e.g. KSFO), and nothing else
+
+Format the response as a valid JSON object with a "landmarks" field containing an array of objects.
+Respond in my preferred locale: {locale}`,
     },
   },
   system_messages: {
     travel_agent: {
-      template: `You are a knowledgeable global travel agent, specializing in “must-see” destinations worldwide.`
+      template: `You are a knowledgeable global travel agent, specializing in “must-see” destinations worldwide.`,
     },
     landmark_specialist: {
       template: `You are a knowledgeable global travel agent, specializing in “must-see” destinations worldwide.
 You will be provided with a list of popular landmarks within a specific location, ordered by relevance.
-Your task is to compile a list of world-famous landmarks and points of interest near that location.`
+Your task is to compile a list of world-famous landmarks and points of interest near that location.`,
     },
     location_finder: {
       template: `You are a knowledgeable global travel agent, specializing in “must-see” destinations worldwide.
-You will be given a "where is" query to identify what is the name of that specific location.`
+You will be given a "where is" query to identify what is the name of that specific location.`,
+    },
+    translator: {
+      template: `You are an expert linguist specializing in software localization in standard JSON resource format.`,
+    },
+    reviewer: {
+      template: `You are a linguistic reviewer specializing in software localization in standard JSON resource format.
+You will be provided with a pair of source/target resource bundles to review and improve translation quality.`,
+    },
+  },
+  translations: {
+    title: `Auto-update LLM Translations`,
+    description: `Prompts for automatic translations and L10n validation of JSON resource bundles`,
+    json_resource: {
+      template: `This is a translation task from locale code {source_lang} to {target_lang}.
+Please provide the {target_lang} target translations for the following set of 
+{source_lang} source strings of a Web frontend application.  The string keys 
+may provide some translation context, but not always.
+
+Output the target strings by preserving the same nested JSON structure,
+while keeping any placeholders intact, and nothing else.
+---
+{source_strings}`,
+    },
+    quality_review: {
+      template: `Your task is to ensure linguistic quality by carefully read and validate the following set of 
+source/target strings translated from {source_lang} to {target_lang} in JSON resource bundles.
+Modify specific target strings if better translation is found, based only on these criteria:
+1. Accuracy (meaning preserved) and appropriate terminology (correct regional terms)
+2. Fluency (natural in target language) and cultural appropriateness for local users
+3. Linguistic consistency between similar contexts and patterns by fuzzy matching
+4. i18n readiness for global deployment with AI generative multi-lingual contents
+
+Make minimal changes.  Output the updated target resource only, in the same JSON structure.
+If no changes is made, the output should be identical with the input below, and nothing else.
+The source and target resources, delimited by XML tags <SOURCE_JSON></SOURCE_JSON> and 
+<TARGET_JSON></TARGET_JSON>, are as follows:
+
+<SOURCE_JSON>
+{source_strings}
+</SOURCE_JSON>
+
+<TARGET_JSON>
+{target_strings}
+</TARGET_JSON>`,
     },
   },
   locations: {
@@ -124,10 +178,9 @@ Please locate the specific geographic location being asked about:
 - 'desc': a brief but informative summary (2-3 sentences, max 100 words)
 - 'lat': location's latitude
 - 'lon': location's longitude
-- 'name2': location names in my secondary locale: zh-HK
 
 Format the response as a valid JSON object with the fields shown above.
-Respond in my primary locale code: {locale}`
+Respond in my preferred locale: {locale}`,
     },
   },
   destinations: {
@@ -136,18 +189,18 @@ Respond in my primary locale code: {locale}`
     history: {
       template: `Generate a brief historical overview of {landmark_name} located in {location_name}.
 Include when it was built/established, significant events, and its cultural importance.
-Keep the response under 150 words and focus on verified historical facts.`
+Keep the response under 150 words and focus on verified historical facts.`,
     },
     architecture: {
       template: `Describe the architectural style and notable design elements of {landmark_name}.
 Include information about the architect (if known), unique features, and any
-interesting structural aspects. Keep the response under 150 words.`
+interesting structural aspects. Keep the response under 150 words.`,
     },
     visitor_info: {
       template: `Provide concise visitor information for {landmark_name}, including typical 
 visiting hours, best time to visit, any entrance fees, and 1-2 insider tips.
 Focus on practical information that would be useful for a first-time visitor.
-Keep the response under 100 words.`
+Keep the response under 100 words.`,
     },
   },
 };

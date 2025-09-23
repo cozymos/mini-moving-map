@@ -15,6 +15,12 @@ dist-ssr
 .eslintcache
 .prettierignore
 .env
+*.py[oc]
+__pycache__/
+
+# Virtual environments
+.venv
+requirements.txt
 
 # Editor directories and files
 .vscode/*
