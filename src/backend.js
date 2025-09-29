@@ -10,7 +10,7 @@ import {
 } from './gmap.js';
 import { setCachedLandmarks, findByLocation } from './cache.js';
 import { same_landmarks } from './utils.js';
-import { getCountryLanguage } from './lion.js';
+import { i18n, getCountryLanguage } from './lion.js';
 
 class LandmarkService {
   constructor() {
@@ -99,7 +99,7 @@ class LandmarkService {
       return {
         location: '',
         landmarks: [],
-        error: 'Please enter a valid search query',
+        error: i18n.t('errors.invalid_search_query'),
       };
 
     // Get location details from coordinates

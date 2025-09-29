@@ -4,6 +4,7 @@ import eslint from 'vite-plugin-eslint';
 const enableESLint = true;
 
 export default defineConfig({
+  base: process.env.VITE_BASE || '/',
   server: {
     host: '0.0.0.0',
     allowedHosts: ['.replit.dev', '.replit.app'],
@@ -15,6 +16,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    outDir: 'dist',
   },
   plugins: [
     enableESLint &&

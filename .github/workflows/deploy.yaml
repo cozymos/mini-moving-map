@@ -1,0 +1,72 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      # --- Set VITE_BASE automatically for repo pages ---
+      # For repo pages, base should be "/<repo-name>/"
+      # For user/org pages (username.github.io), base should be "/"
+      - name: Compute VITE_BASE
+        id: base
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "$REPO_NAME" == *".github.io" ]]; then
+            echo "VITE_BASE=/"
+          else
+            echo "VITE_BASE=/${REPO_NAME}/"
+          fi >> $GITHUB_OUTPUT
+
+      - name: Build
+        env:
+          # You can override this in repo → Settings → Secrets and variables → Actions → Variables
+          # by defining VITE_BASE; if not set, we use the computed default above.
+          VITE_BASE: ${{ vars.VITE_BASE || steps.base.outputs.VITE_BASE }}
+        run: |
+          echo "Using VITE_BASE=$VITE_BASE"
+          npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

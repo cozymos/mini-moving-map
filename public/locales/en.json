@@ -58,6 +58,7 @@
     "location_not_found": "Location not found",
     "geolocation_not_supported": "Geolocation not supported",
     "unable_to_get_geolocation": "Unable to get Geolocation",
-    "moving_map_server_unavailable": "Moving Map server not available"
+    "moving_map_server_unavailable": "Moving Map server not available",
+    "invalid_search_query": "Please enter a valid search query"
   }
 }

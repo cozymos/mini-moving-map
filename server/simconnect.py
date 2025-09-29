@@ -61,7 +61,7 @@ def update_aircraft_data():
         center_long = -122.3754
         radius = 0.01
         t = 0.0
-        print("Starting Circular flight test...")
+        print("Starting Circular flight demo/test mode...")
 
     while True:
         try:

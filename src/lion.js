@@ -296,7 +296,7 @@ class I18n {
 export const i18n = new I18n();
 
 export async function initi18n() {
-  testI18n();
+  // testI18n();
   i18n.TM = JSON.parse(localStorage.getItem(LOCAL_TM)) || {};
   const source_file = await i18n.loadLocale();
   if (source_file) i18n.updateTM(source_file);
@@ -333,7 +333,7 @@ function isValidLocale(str) {
   return regex.test(str);
 }
 
-function testI18n() {
+export function testI18n() {
   const mock = new I18n();
   const mockSrc = {
     hello: 'Hello, {name}!',
@@ -345,16 +345,16 @@ function testI18n() {
   };
   mock.translations[FALLBACK_LANGUAGE] = mockSrc;
 
-  let tgt = mock.t('hello', { name: 'Tom' });
-  console.log('lion test 1: ', tgt, mock.lang);
-  console.assert(tgt === 'Hello, Tom!', 'Placeholder failed');
+  let tgt = mock.t('hello', { name: 'World' });
+  console.log('L10n test 1: ', tgt, mock.lang);
+  console.assert(tgt === 'Hello, World!', 'Placeholder failed');
 
   mock.updateTM(mockSrc, mockTgt, 'zh');
   console.assert(
     mock.lookupTM('zh') === null,
     'lookupTM should return null when locale is ready'
   );
-  console.debug('TM records:', mock.TM);
+  //console.debug('TM records:', mock.TM);
   let missing = mock.lookupTM('fr');
   console.assert(
     missing && missing.hello === 'Hello, {name}!',
@@ -367,16 +367,16 @@ function testI18n() {
   );
   mock.translations['zh'] = exported;
 
+  /*
   console.debug(
-    'lion test 2: ',
+    'L10n test 2: ',
     (tgt = mock.t('nested.example', { value: 42 }, 'zh'))
   );
   console.assert(tgt === '答案是 42。', 'Nested failed');
-  console.debug('res-bundles: ', mock.translations);
-  console.debug('lion test 3: ', (tgt = mock.t('missing.key')));
+  //console.debug('res-bundles: ', mock.translations);
+  console.debug('L10n test 3: ', (tgt = mock.t('missing.key')));
   console.assert(tgt === 'missing.key', 'Missing key failed');
 
-  /*
   const original_json = {
     app: {
       loading_text: 'Loading map…',
@@ -432,6 +432,7 @@ function testI18n() {
   exported = mock.exportTM('zh', partial_json);
   console.log('Exported:', JSON.stringify(exported, null, 2));
   */
+  return true;
 }
 
 function getLanguageSetting() {

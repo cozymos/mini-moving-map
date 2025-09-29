@@ -4,6 +4,7 @@
  * moving aircraft marker on Google Maps with real-time telemetry
  */
 
+import { create3DMapOverlay } from './landmark.js';
 import { mapInterface } from './interfaces.js';
 import { validateCoords, handleError } from './utils.js';
 import { i18n, setTooltip } from './lion.js';
@@ -66,19 +67,11 @@ async function createAircraftMarker(position, heading) {
   // Add click listener to open 3D view
   marker.addListener('click', async () => {
     try {
-      // Import landmark module for 3D overlay functionality
-      const landmarkModule = await import('./landmark.js');
-
-      // Use the existing create3DMapOverlay function
-      if (landmarkModule.create3DMapOverlay) {
-        landmarkModule.create3DMapOverlay(
-          position.lat,
-          position.lng,
-          `${position.lat.toFixed(3)}, ${position.lng.toFixed(3)}`
-        );
-      } else {
-        console.error('create3DMapOverlay not found in landmark module');
-      }
+      create3DMapOverlay(
+        position.lat,
+        position.lng,
+        `${position.lat.toFixed(3)}, ${position.lng.toFixed(3)}`
+      );
     } catch (err) {
       console.error('Failed to open 3D view:', err);
     }
