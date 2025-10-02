@@ -104,7 +104,7 @@ class CachingNotification {
         this.hide();
       }
     } catch (error) {
-      console.error('Status update failed:', error.message);
+      console.warn('Failed to update notification:', error.message);
     }
   }
 

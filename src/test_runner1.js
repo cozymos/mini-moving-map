@@ -97,7 +97,7 @@ async function loadConfig() {
 import { testI18n } from './lion.js';
 
 async function runAllTests() {
-  log('✅ I18n tests passed:', testI18n());
+  log('✅ I18n passed', testI18n());
   log('Testing getConfig()');
   const config = await loadConfig();
   if (

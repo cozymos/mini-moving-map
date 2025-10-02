@@ -9,6 +9,7 @@
  */
 
 import { translateWithGPT } from './openai.js';
+import { fetchJSON } from './utils.js';
 
 const FALLBACK_LANGUAGE = 'en';
 const LOCAL_TM = 'LOCAL_TM';
@@ -24,16 +25,15 @@ class I18n {
   async loadLocale(locale = FALLBACK_LANGUAGE) {
     try {
       const url = `/locales/${locale}.json`;
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
-      });
+      const response = await fetchJSON(url);
       if (!response.ok) {
-        console.error(
+        console.warn(
           'Failed to load the',
           locale === FALLBACK_LANGUAGE
             ? 'required JSON resource file for the fallback language'
             : 'locale file',
-          `'${locale}' from ${url}: ${response.status}`
+          `'${locale}' from ${url}:`,
+          response.statusText
         );
       } else {
         const data = await response.json();
@@ -346,7 +346,7 @@ export function testI18n() {
   mock.translations[FALLBACK_LANGUAGE] = mockSrc;
 
   let tgt = mock.t('hello', { name: 'World' });
-  console.log('L10n test 1: ', tgt, mock.lang);
+  console.log('L10n test 1: ', tgt);
   console.assert(tgt === 'Hello, World!', 'Placeholder failed');
 
   mock.updateTM(mockSrc, mockTgt, 'zh');
@@ -432,7 +432,7 @@ export function testI18n() {
   exported = mock.exportTM('zh', partial_json);
   console.log('Exported:', JSON.stringify(exported, null, 2));
   */
-  return true;
+  return mock.lang;
 }
 
 function getLanguageSetting() {

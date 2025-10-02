@@ -85,7 +85,7 @@ async function initMap() {
     colorScheme: ColorScheme.FOLLOW_SYSTEM,
 
     // Adding map ID for advanced markers
-    mapId: window.APP_CONFIG?.GOOGLE_MAP_ID,
+    mapId: import.meta.env?.VITE_GOOGLE_MAP_ID || 'f61a40c10abb6e5a61bdfb74',
 
     // UI controls optimized for 3D viewing
     fullscreenControl: true,
@@ -288,6 +288,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load Google Maps API
   loadGoogleMapsAPI();
-  await updateTranslation();
-  await applyTranslations();
+
+  // Skip auto-translation if no resource bundles are loaded
+  if (Object.keys(i18n.translations).length > 0) {
+    await updateTranslation();
+    await applyTranslations();
+  }
 });

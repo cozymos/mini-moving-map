@@ -15,12 +15,13 @@ dist-ssr
 .eslintcache
 .prettierignore
 .env
-*.py[oc]
-__pycache__/
 
 # Virtual environments
 .venv
 requirements.txt
+*.py[oc]
+__pycache__/
+build
 
 # Editor directories and files
 .vscode/*
@@ -33,3 +34,4 @@ requirements.txt
 *.sln
 *.sw?
 zset*
+replit.md

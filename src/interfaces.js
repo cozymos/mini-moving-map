@@ -1,5 +1,5 @@
 export { landmarkService } from './backend.js';
-import { getSettings } from './utils.js';
+import { getSettings, handleError } from './utils.js';
 
 export function isTestMode() {
   if (!window.TEST_MODE)
@@ -15,9 +15,8 @@ export function enableTestMode(flag) {
 export function getGoogleMapsApiKey() {
   if (!window.APP_CONFIG?.GOOGLE_MAPS_API_KEY) {
     window.APP_CONFIG.GOOGLE_MAPS_API_KEY =
-      import.meta.env?.VITE_GOOGLE_MAPS_API_KEY
-        ? import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-        : getSettings()['GOOGLE_MAPS_API_KEY'];
+      import.meta.env?.VITE_GOOGLE_MAPS_API_KEY ||
+      getSettings()['GOOGLE_MAPS_API_KEY'];
   }
 
   return window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
@@ -26,9 +25,11 @@ export function getGoogleMapsApiKey() {
 export function getOpenaiApiKey() {
   if (!window.APP_CONFIG?.OPENAI_API_KEY) {
     window.APP_CONFIG.OPENAI_API_KEY =
-      import.meta.env?.VITE_OPENAI_API_KEY
-        ? import.meta.env.VITE_OPENAI_API_KEY
-        : getSettings()['OPENAI_API_KEY'];
+      import.meta.env?.VITE_OPENAI_API_KEY || getSettings()['OPENAI_API_KEY'];
+
+    if (!window.APP_CONFIG.OPENAI_API_KEY) {
+      handleError('OpenAI API key is not configured');
+    }
   }
 
   return window.APP_CONFIG.OPENAI_API_KEY;

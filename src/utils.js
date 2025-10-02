@@ -15,24 +15,35 @@ let CONFIG_CACHE = null;
 export async function getConfig() {
   try {
     if (!CONFIG_CACHE) {
-      if (window.APP_CONFIG?.jsonConfig_url) {
-        const response = await fetch(window.APP_CONFIG?.jsonConfig_url);
-        CONFIG_CACHE = await response.json();
+      const url = window.APP_CONFIG?.jsonConfig_url;
+      if (url) {
+        const response = await fetchJSON(url);
+        if (!response.ok) {
+          console.warn(
+            `Failed to load config from ${url}:`,
+            response.statusText
+          );
+        } else {
+          CONFIG_CACHE = await response.json();
+          return CONFIG_CACHE;
+        }
       }
     }
   } catch (error) {
     console.error('Error loading config:', error);
   }
-  return CONFIG_CACHE;
+  return null;
 }
 
 // Function to get and parse prompts from prompts.json
 export async function getPromptinJSON(promptName, variables = {}) {
   try {
     // Fetch the prompts.json file
-    const response = await fetch('/prompts.json');
+    const response = await fetchJSON('/prompts.json');
+    if (!response.ok) {
+      throw new Error(`Failed to load prompts: ${response.status}`);
+    }
     const prompts = await response.json();
-
     if (!prompts[promptName]) {
       throw new Error(`Prompt "${promptName}" not found`);
     }
@@ -56,6 +67,15 @@ export async function getPromptinJSON(promptName, variables = {}) {
   } catch (error) {
     console.error('Error loading prompt:', error);
   }
+}
+
+export function fetchJSON(path) {
+  const base_url = import.meta.env?.BASE_URL || '/';
+  path = path.replace(/^\/+/, '');
+
+  return fetch(base_url + path, {
+    headers: { Accept: 'application/json' },
+  });
 }
 
 /**

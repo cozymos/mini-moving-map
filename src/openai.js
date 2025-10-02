@@ -268,7 +268,7 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
     const tgtJSON = await callOpenAI(model, systemMsg, prompt);
     return tgtJSON;
   } catch (error) {
-    console.error('Error in auto translation:', error);
+    console.warn('Failed in auto translation:', error);
     return null;
   }
 }
