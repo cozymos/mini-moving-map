@@ -58,7 +58,7 @@ npm install
 
 **Create environment file**
 
-Create your own `.env` file and add your API keys for local development. Vite exposes variables prefixed with `VITE_` to the browser app via `index.html`.
+Create your own `.env` file and add your API keys for local development. Vite exposes variables prefixed with `VITE_` to the browser app
 
 ```bash
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
@@ -67,11 +67,11 @@ VITE_OPENAI_API_KEY=your_openai_api_key
 
 ### "Bring your own key" approach
 
-As an open-source project targeting technical users, this application is designed to run on user's keys. The user is responsible for:
+As an open-source project targeting technical users, this client-only web-app is designed to run on user's keys. The user is responsible for:
 
-1.  Creating their own Google Cloud project and API key (required).
+1.  Creating their own Google Cloud project Maps API key (required), and OpenAI API key (optional)
 2.  Securing their key by restricting it to their own domains (`localhost` for testing, their deployment domain for production).
-3.  The costs associated with their usage.
+3.  The costs associated with their usage, respecting Google Maps and OpenAI terms of service.
 
 **Generate API keys**
 
@@ -85,7 +85,7 @@ As an open-source project targeting technical users, this application is designe
   1.  Visit the [OpenAI dashboard](https://platform.openai.com/api-keys).
   2.  Create a new secret key and copy it for later use; it won't be shown again.
 
-**Start the development server**
+**Start Vite development server**
 
 ```bash
 npm run dev
@@ -102,6 +102,8 @@ npm run dev
 **Start server proxy for MSFS "moving map**
 
 - Install Python with UV and dependencies (see `pyproject.toml`)
+- Relies on the [Python‑SimConnect](https://github.com/odwdinc/Python-SimConnect) library
+- Run it alongside with MSFS on the same PC
 
 ```bash
 uv pip install .
