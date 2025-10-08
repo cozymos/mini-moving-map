@@ -447,7 +447,7 @@ export async function openInternetRadio() {
     });
     if (locationData.state) params.set('state', locationData.state);
 
-    const playerUrl = `src/radio-player.html?${params.toString()}`;
+    const playerUrl = `radio-player.html?${params.toString()}`;
     window.open(playerUrl, '_blank');
   } catch {
     handleError(i18n.t('errors.no_results'));
