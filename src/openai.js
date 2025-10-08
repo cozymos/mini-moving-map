@@ -23,7 +23,7 @@ export async function selectLandmarksWithGPT(
   }
 
   if (!locationData || !Array.isArray(placeList) || placeList.length === 0) {
-    throw new Error('No landmarks found (no input data)');
+    throw new Error('No landmarks found (no input location)');
   }
 
   try {
@@ -115,7 +115,8 @@ export async function getLandmarksWithGPT(
   lat,
   lon,
   radius_km = 15,
-  locale = i18n.lang.preferLocale
+  locale = i18n.lang.preferLocale,
+  promptPath = 'landmarks.discovery'
 ) {
   if (isTestMode()) {
     console.log('Using test landmarks (test mode enabled)');
@@ -132,8 +133,12 @@ export async function getLandmarksWithGPT(
     throw new Error('OpenAI API key is not configured');
   }
 
+  if (!locationData?.locationName) {
+    throw new Error('No input location');
+  }
+
   try {
-    const prompt = GetPrompt('landmarks.discovery', {
+    const prompt = GetPrompt(promptPath, {
       location_name: locationData.locationName,
       radius: radius_km,
       lat,
@@ -158,7 +163,6 @@ export async function getLandmarksWithGPT(
       );
     }
 
-    // Process the landmarks
     const landmarks = [];
     for (let i = 0; i < landmarks_json.length; i++) {
       const item = landmarks_json[i];

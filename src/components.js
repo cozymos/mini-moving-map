@@ -219,9 +219,9 @@ class SettingDialog {
       const tr = document.createElement('tr');
 
       const tdLabel = document.createElement('td');
-      const str_key = `Settings.${key}`;
-      const str_value = i18n.t(str_key);
-      tdLabel.textContent = str_value === str_key ? key : str_value;
+      const strkey = `Settings.${key}`;
+      const strval = i18n.t(strkey);
+      tdLabel.textContent = strval === strkey ? key : strval;
       tr.appendChild(tdLabel);
 
       const tdInput = document.createElement('td');

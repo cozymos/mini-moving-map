@@ -93,14 +93,15 @@ export async function getLocationDetails(latitude, longitude) {
         parts.push(country);
 
       const locationName = parts.length ? parts.join(', ') : 'Unknown Location';
-      console.debug(`Where is (${cacheKey}): ${locationName} (${countryCode})`);
-
       const resultDict = {
         locationName,
+        city: locality ? locality : adminArea,
+        state: locality ? adminArea : undefined,
         country: country || 'Unknown',
         countryCode,
       };
       locationCache[cacheKey] = resultDict;
+      console.debug(`Where is (${cacheKey}): ${locationName}`, resultDict);
       return resultDict;
     }
   } catch (error) {

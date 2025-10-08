@@ -284,7 +284,10 @@ class I18n {
         FALLBACK_LANGUAGE,
         locale
       );
-      // console.debug('Translated:', JSON.stringify(translated, null, 2));
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('lion')) {
+        console.debug('Translated:', JSON.stringify(translated, null, 2));
+      }
       this.updateTM(missing, translated, locale);
     }
     const exported = this.exportTM(locale);

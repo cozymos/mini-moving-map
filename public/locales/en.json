@@ -2,7 +2,9 @@
   "app": {
     "loading_text": "Loading map…",
     "caching_text": "Finding landmarks…",
-    "search_placeholder": "Search location…"
+    "search_placeholder": "Search location…",
+    "airport_menu": "Search Airports",
+    "radio_menu": "Search Radio Stations"
   },
   "Settings": {
     "GOOGLE_MAPS_API_KEY": "Google Maps API Key",
@@ -20,15 +22,14 @@
       "connection_description": "There was a problem retrieving landmarks information. This could be due to:",
       "network_issue": "Network connectivity issues",
       "api_unavailable": "API service temporarily unavailable",
-      "connection_suggestion": "Please check your network connection and try again later.",
       "retry_button": "Try Again"
     }
   },
   "landmark": {
     "overlay": {
       "load_failed_title": "3D Map Failed to Load",
-      "load_failed_description": "The photorealistic 3D view could not be initialized.",
-      "load_failed_details": "This may be due to browser compatibility, network issues, or Google Maps 3D beta access limitations.",
+      "load_failed_description": "The Google 3D Map view could not be initialized.",
+      "load_failed_details": "This may be due to browser compatibility, network issues, or API access limitations.",
       "close_button": "Close 3D View"
     }
   },
@@ -51,11 +52,13 @@
     "replay_animation": "Replay Animation",
     "teleport_to_aircraft": "Teleport to aircraft position",
     "view_in_3d": "View in 3D",
-    "delete_setting": "Delete Setting"
+    "delete_setting": "Delete Setting",
+    "more_options": "More Options"
   },
   "errors": {
     "no_landmarks_found": "No landmarks found in this area",
     "location_not_found": "Location not found",
+    "no_results": "No search results",
     "geolocation_not_supported": "Geolocation not supported",
     "unable_to_get_geolocation": "Unable to get Geolocation",
     "moving_map_server_unavailable": "Moving Map server not available",

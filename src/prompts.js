@@ -93,7 +93,7 @@ Example format:
     },
     airport: {
       template: `Generate a list of airports nearby coordinates: {lat}, {lon}.
-Include any uncontrolled airport in {location_name}.
+If any, include uncontrolled airport in {location_name}.  Don't invent any airports.
 
 For each airport, return:
 - 'name': the official name to show on a map, and nothing else
@@ -105,7 +105,7 @@ For each airport, return:
 - 'type': ICAO code of the airport in 4-letter (e.g. KSFO), and nothing else
 
 Format the response as a valid JSON object with a "landmarks" field containing an array of objects.
-Respond in my preferred locale: {locale}`,
+If none found, return empty array [].  Respond in my preferred locale: {locale}`,
     },
   },
   system_messages: {

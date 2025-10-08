@@ -367,8 +367,8 @@ export function create3DMapOverlay(lat, lng, placeName) {
         setTimeout(() => {
           map3DElement.flyCameraAround({
             camera: flyToCamera,
-            durationMillis: 12000,
-            rounds: 1,
+            durationMillis: 5000,
+            repeatCount: 1,
           });
         }, 5100); // 5000ms fly-to + 100ms buffer
       };
@@ -414,7 +414,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
               // Teleport to aircraft position
               map3DElement.flyCameraTo({
                 endCamera: cameraConfig,
-                durationMillis: 1500,
+                durationMillis: 2000,
               });
 
               console.debug('Camera synced to aircraft:', {
@@ -442,8 +442,8 @@ export function create3DMapOverlay(lat, lng, placeName) {
               range: 600,
               heading: 30,
             },
-            durationMillis: 12000,
-            rounds: 1,
+            durationMillis: 8000,
+            repeatCount: 1,
           });
         } catch (error) {
           console.error('Auto fly-around failed:', error);
@@ -541,6 +541,11 @@ export function create3DMapOverlay(lat, lng, placeName) {
 
         // startAutoAnimation();
         // setTimeout(add3DMarkersAndPopovers, 500);
+      });
+
+      // Add an event listener to stop the animation when the user clicks the map
+      map3DElement.addEventListener('gmp-click', () => {
+        map3DElement.stopCameraAnimation();
       });
 
       // 2. Backup method: Poll for map readiness and start animation

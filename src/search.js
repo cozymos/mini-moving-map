@@ -1,4 +1,5 @@
-import { getLocationCoord } from './gmap.js';
+import { getLocationCoord, getLocationDetails } from './gmap.js';
+import { getLandmarksWithGPT } from './openai.js';
 import {
   getCachedLandmarks,
   setCachedLandmarks,
@@ -60,6 +61,7 @@ export function initSearch() {
   }
 
   window.addEventListener('CachingNotification_updated', async () => {
+    // Get current map center
     const currentCenter = mapInterface.getMapCenter(map);
     if (
       Math.abs(currentCenter.lat - lastCenter.lat) < 0.1 &&
@@ -78,7 +80,6 @@ export async function searchLandmarks() {
     landmarksList.innerHTML = '';
     mapInterface.clearLandMarkers();
 
-    // Get current map center
     lastCenter = mapInterface.getMapCenter(map);
     const lat = normalizeCoordValue(lastCenter.lat);
     const lon = normalizeCoordValue(lastCenter.lng);
@@ -144,22 +145,13 @@ export async function searchLandmarks() {
     );
 
     // Show error message
-    const connectionTitle = escapeHTML(
-      i18n.t('search.error.connection_title')
-    );
+    const connectionTitle = escapeHTML(i18n.t('search.error.connection_title'));
     const connectionDescription = escapeHTML(
       i18n.t('search.error.connection_description')
     );
     const networkIssue = escapeHTML(i18n.t('search.error.network_issue'));
-    const apiUnavailable = escapeHTML(
-      i18n.t('search.error.api_unavailable')
-    );
-    const connectionSuggestion = escapeHTML(
-      i18n.t('search.error.connection_suggestion')
-    );
-    const retryButtonText = escapeHTML(
-      i18n.t('search.error.retry_button')
-    );
+    const apiUnavailable = escapeHTML(i18n.t('search.error.api_unavailable'));
+    const retryButtonText = escapeHTML(i18n.t('search.error.retry_button'));
 
     landmarksList.innerHTML = `
                 <div class="landmark-item error">
@@ -170,7 +162,6 @@ export async function searchLandmarks() {
                             <li>${networkIssue}</li>
                             <li>${apiUnavailable}</li>
                         </ul>
-                        <p>${connectionSuggestion}</p>
                         <button id="retry-landmarks" class="btn">${retryButtonText}</button>
                     </div>
                 </div>
@@ -415,4 +406,50 @@ export async function getUserLocation() {
   // Update URL parameters with current position
   updateUrlParameters();
   return shouldShowMarker ? targetLocation : null;
+}
+
+export async function searchAirport() {
+  try {
+    landmarksList.innerHTML = '';
+    mapInterface.clearLandMarkers();
+    setLoading(true);
+
+    const center = mapInterface.getMapCenter(map);
+    const lat = normalizeCoordValue(center.lat);
+    const lon = normalizeCoordValue(center.lng);
+    const locationData = await getLocationDetails(lat, lon);
+    const landmarkData = await getLandmarksWithGPT(
+      locationData,
+      lat,
+      lon,
+      100,
+      i18n.lang.preferLocale,
+      'landmarks.airport'
+    );
+    if (landmarkData?.landmarks?.length > 0) {
+      await mapInterface.displayLandmarks(landmarkData);
+    }
+  } catch {
+    handleError(i18n.t('errors.no_results'));
+  } finally {
+    setLoading(false);
+  }
+}
+
+export async function openInternetRadio() {
+  try {
+    const center = mapInterface.getMapCenter(map);
+    const locationData = await getLocationDetails(center.lat, center.lng);
+    const params = new URLSearchParams({
+      city: locationData.city,
+      countrycode: locationData.countryCode,
+      // limit: 10,
+    });
+    if (locationData.state) params.set('state', locationData.state);
+
+    const playerUrl = `src/radio-player.html?${params.toString()}`;
+    window.open(playerUrl, '_blank');
+  } catch {
+    handleError(i18n.t('errors.no_results'));
+  }
 }

@@ -1,5 +1,11 @@
 /* eslint-disable no-undef */
-import { initSearch, searchLandmarks, getUserLocation } from './search.js';
+import {
+  initSearch,
+  searchLandmarks,
+  getUserLocation,
+  searchAirport,
+  openInternetRadio,
+} from './search.js';
 import { initLandmark } from './landmark.js';
 import {
   getConfig,
@@ -16,11 +22,11 @@ import { i18n, initi18n, updateTranslation } from './lion.js';
 
 const translationMap = {
   // mapping DOM selectors to translation keys
-  '.loading-text': { property: 'textContent', key: 'app.loading_text' },
-  '.caching-text': { property: 'textContent', key: 'app.caching_text' },
+  '.loading-text': { property: 'textContent', strkey: 'app.loading_text' },
+  '.caching-text': { property: 'textContent', strkey: 'app.caching_text' },
   'input#search-input': {
     property: 'placeholder',
-    key: 'app.search_placeholder',
+    strkey: 'app.search_placeholder',
   },
 };
 
@@ -33,6 +39,9 @@ const settingsButton = document.getElementById('settings-button');
 const localeButton = document.getElementById('locale-button');
 const searchSideBar = document.getElementById('search-bar-container');
 const landmarkSidebar = document.getElementById('landmarks-sidebar');
+const moreWrapper = document.getElementById('more-wrapper');
+const moreButton = document.getElementById('more-button');
+const moreMenu = document.getElementById('more-menu');
 
 // Default coordinates (San Francisco)
 let defaultLocation = { lat: 37.7749, lng: -122.4194 };
@@ -145,15 +154,42 @@ async function initMap() {
 }
 
 /**
+ * Adds a new option to More-menu dropdown.
+ * @param {string} strkey - The translation key for this label.
+ * @param {Function} handler - Function called when the option is clicked.
+ */
+export function addMoreOption(strkey, handler) {
+  const item = document.createElement('div');
+  item.className = 'dropdown-item';
+  item.setAttribute('data-i18n-text', strkey);
+  item.addEventListener('click', (ev) => {
+    handler(ev);
+    moreMenu.classList.remove('show'); // hide after selection
+  });
+  moreMenu.appendChild(item);
+}
+
+// when clicking elsewhere on the document
+document.addEventListener('click', () => {
+  moreMenu.classList.remove('show');
+});
+
+/**
  * Set up custom controls
  */
 async function setupCustomControl() {
+  // add each button into gmap DOM structure, attaching click listeners
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(myLocationButton);
   myLocationButton.addEventListener('click', async () => {
     await markUserLocation();
   });
 
-  // Add click event to search landmarks button
+  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
+  moreButton.addEventListener('click', (ev) => {
+    ev.stopPropagation(); // Prevent click bubbling
+    moreMenu.classList.toggle('show');
+  });
+
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
     searchLandmarksButton
   );
@@ -178,9 +214,13 @@ async function setupCustomControl() {
   if (i18n.lang.secondLocale) {
     map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(localeButton);
     localeButton.addEventListener('click', async () => {
-      if (i18n.userLocale === i18n.lang.preferLocale)
+      if (i18n.userLocale === i18n.lang.preferLocale) {
         i18n.userLocale = i18n.lang.secondLocale;
-      else i18n.userLocale = i18n.lang.preferLocale;
+        localeButton.textContent = '🌏';
+      } else {
+        i18n.userLocale = i18n.lang.preferLocale;
+        localeButton.textContent = '🌎';
+      }
       // await updateTranslation();
       await applyTranslations();
     });
@@ -257,23 +297,23 @@ function loadGoogleMapsAPI() {
 }
 
 async function applyTranslations() {
-  Object.entries(translationMap).forEach(([selector, { property, key }]) => {
+  Object.entries(translationMap).forEach(([selector, { property, strkey }]) => {
     document.querySelectorAll(selector).forEach((el) => {
       if (property in el || property === 'textContent') {
-        el[property] = i18n.t(key);
+        el[property] = i18n.t(strkey);
       }
     });
   });
 
   document.querySelectorAll('[data-i18n-text]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-text');
-    const str_value = i18n.t(key);
-    el.textContent = str_value === key ? '' : str_value;
+    const strkey = el.getAttribute('data-i18n-text');
+    const str_value = i18n.t(strkey);
+    el.textContent = str_value === strkey ? '' : str_value;
   });
 
   document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-title');
-    el.title = i18n.t(key); // Set title for tooltips
+    const strkey = el.getAttribute('data-i18n-title');
+    el.title = i18n.t(strkey); // Set title for tooltips
   });
 }
 
@@ -288,6 +328,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load Google Maps API
   loadGoogleMapsAPI();
+
+  addMoreOption('app.airport_menu', async () => {
+    await searchAirport();
+  });
+
+  addMoreOption('app.radio_menu', async () => {
+    await openInternetRadio();
+  });
 
   // Skip auto-translation if no resource bundles are loaded
   if (Object.keys(i18n.translations).length > 0) {
