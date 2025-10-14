@@ -345,7 +345,7 @@ export function updateUrlParameters(pushState = false) {
  */
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
+    if (!navigator?.geolocation) {
       handleError(i18n.t('errors.geolocation_not_supported'));
       myLocationButton.disabled = true;
       setTooltip(myLocationButton, 'errors.geolocation_not_supported');
