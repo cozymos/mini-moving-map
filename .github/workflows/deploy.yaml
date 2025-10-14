@@ -30,6 +30,10 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Run tests
+        run: npm test
+      # If tests fail, the workflow will stop here.
+
       # --- Set VITE_BASE automatically for repo pages ---
       # For repo pages, base should be "/<repo-name>/"
       # For user/org pages (username.github.io), base should be "/"

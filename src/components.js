@@ -205,7 +205,7 @@ class SettingDialog {
       // Hide it after a short delay
       setTimeout(() => {
         this.statusMessage.style.opacity = 0;
-      }, 1500);
+      }, 2000);
     }
   }
 
@@ -240,7 +240,21 @@ class SettingDialog {
       delBtn.setAttribute('data-i18n-title', 'tooltips.delete_setting');
       delBtn.title = i18n.t('tooltips.delete_setting');
       delBtn.dataset.key = key;
-      delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.134H8.09a2.09 2.09 0 00-2.09 2.134v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`;
+      delBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="26" viewBox="0 0 24 26" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true" >
+            <!-- Lid -->
+            <path d="M3 6h18" />
+            <!-- Lid handle -->
+            <path d="M9 4h6" />
+            <!-- Taller body -->
+            <rect x="5" y="6" width="14" height="16" rx="2" ry="2" />
+            <!-- Inner lines -->
+            <line x1="10" y1="10" x2="10" y2="18" />
+            <line x1="14" y1="10" x2="14" y2="18" />
+        </svg>
+      `;
 
       tdInput.appendChild(input);
       tdInput.appendChild(delBtn);

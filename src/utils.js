@@ -11,28 +11,29 @@ export function getSettings() {
 
 let CONFIG_CACHE = null;
 
-// Utility functions for loading configuration
+// Utility function for loading configuration
 export async function getConfig() {
+  if (CONFIG_CACHE) return CONFIG_CACHE;
+
+  const url = window.APP_CONFIG?.jsonConfig_url;
+  if (!url) {
+    console.warn('No jsonConfig_url found in window.APP_CONFIG');
+    return null;
+  }
+
   try {
-    if (!CONFIG_CACHE) {
-      const url = window.APP_CONFIG?.jsonConfig_url;
-      if (url) {
-        const response = await fetchJSON(url);
-        if (!response.ok) {
-          console.warn(
-            `Failed to load config from ${url}:`,
-            response.statusText
-          );
-        } else {
-          CONFIG_CACHE = await response.json();
-          return CONFIG_CACHE;
-        }
-      }
+    const response = await fetchJSON(url);
+    if (!response.ok) {
+      console.warn(`Failed to load config from ${url}:`, response.statusText);
+      return null;
     }
+
+    CONFIG_CACHE = await response.json();
+    return CONFIG_CACHE;
   } catch (error) {
     console.error('Error loading config:', error);
+    return null;
   }
-  return null;
 }
 
 // Function to get and parse prompts from prompts.json
@@ -121,7 +122,12 @@ export function escapeHTML(unsafe) {
 }
 
 /**
- * Normalize coordinate value to a float rounded to 4 decimal places
+ * Normalize coordinate value to a float rounded to appropriate decimal precision:
+ * 0 decimal places: ≈ 111 km (Can locate a country or large region).
+ * 1 decimal place: ≈ 11.1 km (Can locate a large city or district).
+ * 2 decimal places: ≈ 1.11 km (Can locate a town or village).
+ * 3 decimal places: ≈ 111 meters (Can locate a neighborhood or street).
+ * 4 decimal places: ≈ 11.1 meters (Can locate a building, as typical consumer-grade GPS).
  * @param {number|string} value - The coordinate value to normalize
  * @returns {number|null} - Normalized value or null if invalid
  */
@@ -253,7 +259,7 @@ function showError(message) {
   const errorElement = document.getElementById('error-message');
   if (!errorElement) return;
 
-  errorElement.textContent = message;
+  errorElement.textContent = '⚠️ ' + message;
   errorElement.classList.remove('hidden');
 
   // Hide after 5 seconds

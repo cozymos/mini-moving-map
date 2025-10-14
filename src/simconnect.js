@@ -8,6 +8,7 @@ import { create3DMapOverlay } from './landmark.js';
 import { mapInterface } from './interfaces.js';
 import { validateCoords, handleError } from './utils.js';
 import { i18n, setTooltip } from './lion.js';
+import { updateUrlParameters } from './search.js';
 
 // Module state
 let map = null;
@@ -42,17 +43,14 @@ async function createAircraftMarker(position, heading) {
   const aircraftIcon = document.createElement('div');
   aircraftIcon.innerHTML = `
     <div style="
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transform: rotate(${heading}deg);
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-      font-size: 24px;
-      cursor: pointer;
+      width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      transform: rotate(${heading}deg); transition: transform 0.3s ease;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); cursor: pointer;
     ">
-      ✈️
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="#0D47A1"
+        stroke="white" stroke-width="1" stroke-linejoin="round">
+        <path d="M21 13v-2l-8-3V3.5a1.5 1.5 0 0 0-3 0V8L2 11v2l8-1v4l-2 1.5V19l3-1 3 1v-1.5L13 16v-4l8 1z" />
+      </svg>
     </div>
   `;
 
@@ -158,7 +156,6 @@ function startAircraftTracking() {
     const aircraftData = await fetchAircraftData();
     if (aircraftData && aircraftData.connected !== false) {
       if (aircraftData.latitude && aircraftData.longitude) {
-        aircraftData.heading -= 40; // emoji heading adjustment (diff fonts are slightly different)
         await updateAircraftMarker(aircraftData);
       }
     } else stopAircraftTracking();
@@ -210,6 +207,7 @@ export async function toggleAircraftTracking() {
       Math.abs(currentCenter.lng - lastKnownPosition.lng) > 0.01
     ) {
       mapInterface.mapPanTo(lastKnownPosition.lat, lastKnownPosition.lng, 0);
+      updateUrlParameters(true);
       return true;
     }
   }

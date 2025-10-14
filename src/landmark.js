@@ -54,41 +54,15 @@ export async function displayLandmarks(landmark_data) {
     const lon = landmark.lon;
 
     // Validate coordinates before creating marker
-    if (!validateCoords(lat, lon)) {
-      console.error('Invalid coordinates:', placeName, { lat, lon });
+    let has_marker = true;
+    if (placeName == null) {
       continue; // Skip this landmark
+    } else if (lat == null || lon == null) {
+      has_marker = false;
+    } else if (!validateCoords(lat, lon)) {
+      console.warn('Invalid coordinates:', placeName, { lat, lon });
+      continue;
     }
-
-    const position = {
-      lat: lat,
-      lng: lon,
-    };
-
-    // Create marker
-    const markerView = new AdvancedMarkerElement({
-      position: position,
-      map: map,
-      title: placeName,
-      content: createMarkerElement(placeName),
-    });
-
-    const index = landMarkers.length;
-    markerView.index = index;
-    markerView.desc = landmark.desc;
-    landMarkers.push(markerView);
-
-    // Create sidebar element
-    const landmarkElement = createSidebarElement(landmark, index);
-    const photoContainer = landmarkElement.querySelector(
-      '.landmark-photo-container'
-    );
-
-    // Create info window
-    const infoWindowContent = createInfoWindowContent(landmark, index);
-    const infoWindow = new google.maps.InfoWindow({
-      content: infoWindowContent,
-    });
-    infoWindows.push(infoWindow);
 
     // Get image asynchronously if available
     let imageUrl;
@@ -115,33 +89,61 @@ export async function displayLandmarks(landmark_data) {
       }
     }
 
-    // Add images to both sidebar and info window
+    // Create sidebar element
+    const index = landMarkers.length;
+    const landmarkElement = createSidebarElement(landmark, index);
+    const photoContainer = landmarkElement.querySelector(
+      '.landmark-photo-container'
+    );
     if (imageUrl) {
-      await createSidebarImage(
-        imageUrl,
-        placeName,
-        photoContainer,
-        position.lat,
-        position.lng
-      );
-      await createInfoWindowImage(
-        imageUrl,
-        infoWindowContent,
-        placeName,
-        position.lat,
-        position.lng
-      );
-      markerView.imageUrl = imageUrl;
+      await createSidebarImage(imageUrl, placeName, photoContainer, lat, lon);
     }
 
-    // Setup interactions
-    setupPlaceInteractions(
-      markerView,
-      infoWindow,
-      landmarkElement,
-      position,
-      index
-    );
+    if (has_marker) {
+      const position = {
+        lat: lat,
+        lng: lon,
+      };
+
+      // Create marker
+      const markerView = new AdvancedMarkerElement({
+        position: position,
+        map: map,
+        title: placeName,
+        content: createMarkerElement(placeName),
+      });
+
+      markerView.index = index;
+      markerView.desc = landmark.desc;
+      landMarkers.push(markerView);
+
+      // Create info window
+      const infoWindowContent = createInfoWindowContent(landmark, index);
+      const infoWindow = new google.maps.InfoWindow({
+        content: infoWindowContent,
+      });
+      infoWindows.push(infoWindow);
+
+      if (imageUrl) {
+        await createInfoWindowImage(
+          imageUrl,
+          infoWindowContent,
+          placeName,
+          lat,
+          lon
+        );
+        markerView.imageUrl = imageUrl;
+      }
+
+      // Setup interactions
+      setupPlaceInteractions(
+        markerView,
+        infoWindow,
+        landmarkElement,
+        position,
+        index
+      );
+    }
   }
 
   // Show landmarks panel
@@ -568,7 +570,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
           startAutoAnimation();
           setTimeout(add3DMarkersAndPopovers, 500);
         } else {
-          // Continue polling
+          // Keep polling
           setTimeout(pollForMapReady, 500);
         }
       };
@@ -668,7 +670,8 @@ export function create3DMapOverlay(lat, lng, placeName) {
  * @param {number} lng - Longitude
  * @param {string} placeName - Name of the place
  */
-function create3DIconOverlay(imageContainer, lat, lng, placeName) {
+function create3DIconOverlay(imageContainer, lat, lon, placeName) {
+  if (lat == null || lon == null) return;
   const iconOverlay = document.createElement('div');
   iconOverlay.style.cssText = `
     position: absolute;
@@ -700,7 +703,7 @@ function create3DIconOverlay(imageContainer, lat, lng, placeName) {
 
   iconOverlay.addEventListener('click', (e) => {
     e.stopPropagation();
-    create3DMapOverlay(lat, lng, placeName);
+    create3DMapOverlay(lat, lon, placeName);
   });
 
   imageContainer.appendChild(iconOverlay);
@@ -751,7 +754,7 @@ async function createSidebarImage(
   placeName,
   photoContainer,
   lat,
-  lng
+  lon
 ) {
   // Create container for image and 3D icon
   const imageWrapper = document.createElement('div');
@@ -773,9 +776,7 @@ async function createSidebarImage(
   });
 
   imageWrapper.appendChild(photoElement);
-  if (lat !== undefined && lng !== undefined) {
-    create3DIconOverlay(imageWrapper, lat, lng, placeName);
-  }
+  create3DIconOverlay(imageWrapper, lat, lon, placeName);
   photoContainer.appendChild(imageWrapper);
 }
 
@@ -787,7 +788,7 @@ async function createInfoWindowImage(
   infoWindowContent,
   placeName,
   lat,
-  lng
+  lon
 ) {
   // Create container for image and 3D icon
   const imageWrapper = document.createElement('div');
@@ -808,9 +809,7 @@ async function createInfoWindowImage(
   });
 
   imageWrapper.appendChild(imgElement);
-  if (lat !== undefined && lng !== undefined) {
-    create3DIconOverlay(imageWrapper, lat, lng, placeName);
-  }
+  create3DIconOverlay(imageWrapper, lat, lon, placeName);
   infoWindowContent.appendChild(imageWrapper);
 }
 

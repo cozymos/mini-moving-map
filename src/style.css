@@ -371,8 +371,8 @@ body {
 
 .settings-bar-section.center {
   justify-content: center;
-  gap: 0.5rem;
-  align-items: baseline;
+  gap: 1rem;
+  align-items: center;
 }
 
 .settings-bar-section.right {
@@ -380,7 +380,7 @@ body {
 }
 
 #settings-title {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   margin: 0;
 }
@@ -406,12 +406,8 @@ body {
 }
 
 .transitional-message {
-  font-size: 1.5rem; /* Make the checkmark larger */
-  color: #28a745; /* Green color for success */
-  font-weight: bold;
-  height: 1rem;
   opacity: 0; /* Start as invisible */
-  transition: opacity 0.3s ease-in-out;
+  transition: opacity 0.8s ease-in-out;
 }
 
 .table-scollable {
@@ -434,7 +430,7 @@ body {
 }
 
 #settings-table td:first-child {
-  font-weight: bold;
+  font-weight: 500;
   width: 40%;
 }
 
@@ -470,7 +466,7 @@ body {
 
 .dropdown-item {
   font-size: 14px !important;
-  font-weight: bold;
+  font-weight: 500;
   padding: 8px 12px;
   cursor: pointer;
   white-space: nowrap;

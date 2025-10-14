@@ -102,13 +102,6 @@
       🏛️
     </button>
     <button
-      id="aircraft-tracking"
-      class="control-button"
-      data-i18n-title="tooltips.aircraft_tracking_start"
-    >
-      ✈️
-    </button>
-    <button
       id="settings-button"
       class="control-button"
       data-i18n-title="tooltips.settings"
@@ -121,6 +114,13 @@
       data-i18n-title="tooltips.my_locale"
     >
       🌎
+    </button>
+    <button
+      id="aircraft-tracking"
+      class="control-button"
+      data-i18n-title="tooltips.aircraft_tracking_start"
+    >
+      ✈️
     </button>
 
     <div id="more-wrapper" class="dropdown-wrapper">
@@ -175,14 +175,14 @@
     <!-- Loading Indicator -->
     <div id="loading">
       <div class="loading-spinner"></div>
-      <div class="loading-text">Loading map…</div>
+      <div class="loading-text">🌐 Loading map…</div>
     </div>
 
     <!-- Caching Notification -->
     <div id="caching-notification" class="hidden">
       <div class="caching-content">
         <div class="caching-spinner"></div>
-        <div class="caching-text">Finding landmarks…</div>
+        <div class="caching-text">🏛️ Finding landmarks…</div>
         <button
           id="dismiss-caching"
           class="dismiss-button"
@@ -194,7 +194,7 @@
     </div>
 
     <!-- Error Message -->
-    <div id="error-message" class="hidden"></div>
+    <div id="error-message" class="hidden">⚠️ Error</div>
 
     <!-- Settings Dialog -->
     <div id="settings-dialog" class="settings-overlay hidden">
@@ -227,7 +227,31 @@
               id="settings-title"
               data-i18n-text="SettingDialog.settings_title"
             ></h2>
-            <div id="status-message" class="transitional-message">✓</div>
+            <div
+              id="status-message"
+              class="transitional-message"
+              role="status"
+              aria-label="Saved"
+              aria-live="polite"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="28"
+                height="28"
+                aria-hidden="true"
+                style="
+                  display: block;
+                  stroke: #28a745;
+                  stroke-width: 2.5;
+                  stroke-linecap: round;
+                  stroke-linejoin: round;
+                  fill: none;
+                "
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M7 12l3 3 7-7" />
+              </svg>
+            </div>
           </div>
 
           <div class="settings-bar-section right">

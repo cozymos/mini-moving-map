@@ -223,7 +223,6 @@
         </div>
         <div class="nowplaying" id="nowPlaying">—</div>
         <div class="volume">
-          <span>🔊</span>
           <input
             id="vol"
             type="range"
@@ -343,8 +342,7 @@
           countrycode && `countrycode: ${countrycode}`,
         ]
           .filter(Boolean)
-          .join('  •  ') || 'Add ?countrycode= (and optional &city=&state=)';
-
+          .join('  •  ') || 'Add ?countrycode= (optional &city=&state=)';
       let stations = [];
       let current = -1;
       let switchId = 0;
@@ -390,8 +388,8 @@
           return;
         }
         const s = stations[current];
-        const prefix = audio.paused ? '' : 'Now Playing: ';
-        nowPlayingEl.textContent = `${prefix}${s.name}`;
+        const suffix = audio.paused ? '' : ' 　🔊';
+        nowPlayingEl.textContent = `${s.name}${suffix}`;
       }
       const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
       function findByName(list, name) {
@@ -400,14 +398,14 @@
         return list.findIndex((st) => norm(st.name) === t);
       }
       /* Keep URL’s station param in sync with current selection */
-      function updateUrlStation(name) {
+      function updateUrlStation(st) {
         const url = new URL(window.location.href);
         const sp = url.searchParams;
         // preserve city, countrycode, optional state; update station only
-        sp.set('station', name);
+        sp.set('station', st.name);
         url.search = sp.toString();
         history.replaceState(null, '', url.toString());
-        document.title = `${name} - Mini Radio Player`;
+        document.title = `${st.name} [${st.location.countrycode}] - Mini Radio Player`;
       }
 
       /* ---- Play logic ---- */
@@ -418,7 +416,7 @@
         current = index;
         highlight(current);
         updateNowPlaying();
-        updateUrlStation(stations[current].name); // sync URL to selection
+        updateUrlStation(stations[current]); // sync URL to selection
         setStatus('Connecting…');
         try {
           audio.pause();
@@ -568,9 +566,9 @@
           highlight(current);
           updateNowPlaying();
           audio.src = stations[current].streamUrl; // preload without autoplay
-          updateUrlStation(stations[current].name); // ensure URL reflects actual selection
+          updateUrlStation(stations[current]); // ensure URL reflects actual selection
           setStatus(
-            `Loaded ${stations.length} stations.  Keyboard shortcuts: ←/→, Space, ↑/↓.`
+            `Loaded ${stations.length} stations.  Keyboard shortcuts: ←/→ . Space . ↑/↓ .`
           );
         } catch (err) {
           console.error(err);

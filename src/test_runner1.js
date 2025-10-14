@@ -94,9 +94,8 @@ async function loadConfig() {
   }
 }
 
-import { testI18n } from './lion.js';
-
 async function runAllTests() {
+  const { testI18n } = await import('./lion.js');
   log('✅ I18n passed', testI18n());
   log('Testing getConfig()');
   const config = await loadConfig();
@@ -231,8 +230,10 @@ async function testRunner() {
   );
 
   const success = await runAllTests();
-  if (success) console.log('✅ PASS: All tests completed successfully');
-  else console.error('❌ FAIL: Some tests failed! Check the logs for details');
+  const exitcode = success ? 0 : 1;
+  if (success) console.log(`✅ All tests passed! (exit code = ${exitcode})`);
+  else console.error(`❌ FAIL: Some tests failed! (exit code = ${exitcode})`);
+  return exitcode;
 }
 
 // CLI argument parsing for Node.js
@@ -291,7 +292,8 @@ export async function main() {
     // Node.js equivalent of if __name__ == "__main__":
     if (scriptFilename === metaFilename) {
       await parseArgs();
-      await testRunner();
+      const exitcode = await testRunner();
+      process.exit(exitcode);
     }
   }
 }

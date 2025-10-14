@@ -237,9 +237,9 @@ export async function PlaceTextSearch(
       data.places[0].formattedAddress
     ) {
       const place = data.places[0];
+      const currentLanguageCode = place.displayName?.languageCode || langCode;
       const formattedAddress = place.formattedAddress;
       const addressParts = formattedAddress.split(', ');
-      const currentLanguageCode = place.displayName?.languageCode || langCode;
       const country = addressParts[addressParts.length - 1];
 
       // Determine correct language code based on country
@@ -267,7 +267,8 @@ export async function PlaceNearbySearch(
   lon,
   radius_km = 15,
   maxResultCount = 10,
-  langCode = i18n.lang.preferLangCode
+  langCode = i18n.lang.preferLangCode,
+  filterType = null
 ) {
   if (isTestMode()) {
     console.log('Using test places (test mode enabled)');
@@ -310,23 +311,30 @@ export async function PlaceNearbySearch(
         radius: radius_km * 1000,
       },
     },
-    rankPreference: 'POPULARITY',
-    includedTypes: [
-      'historical_landmark',
-      'tourist_attraction',
-      'historical_place',
-    ],
-    excludedTypes: [
-      'park',
-      'store',
-      'shopping_mall',
-      'restaurant',
-      'bar',
-      'stadium',
-    ],
     languageCode: langCode,
     maxResultCount: maxResultCount,
   };
+  if (!filterType) {
+    filterType = {
+      includedTypes: [
+        'historical_landmark',
+        'tourist_attraction',
+        'historical_place',
+      ],
+      excludedTypes: [
+        'park',
+        'store',
+        'shopping_mall',
+        'restaurant',
+        'bar',
+        'stadium',
+      ],
+      rankPreference: 'POPULARITY',
+    };
+  }
+  if (filterType && typeof filterType === 'object') {
+    Object.assign(requestBody, filterType);
+  }
 
   try {
     console.debug('Nearby Search Req:', requestBody);

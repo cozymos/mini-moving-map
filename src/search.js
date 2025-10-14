@@ -1,4 +1,8 @@
-import { getLocationCoord, getLocationDetails } from './gmap.js';
+import {
+  getLocationCoord,
+  getLocationDetails,
+  PlaceNearbySearch,
+} from './gmap.js';
 import { getLandmarksWithGPT } from './openai.js';
 import {
   getCachedLandmarks,
@@ -417,15 +421,33 @@ export async function searchAirport() {
     const center = mapInterface.getMapCenter(map);
     const lat = normalizeCoordValue(center.lat);
     const lon = normalizeCoordValue(center.lng);
-    const locationData = await getLocationDetails(lat, lon);
-    const landmarkData = await getLandmarksWithGPT(
-      locationData,
-      lat,
-      lon,
-      100,
-      i18n.lang.preferLocale,
-      'landmarks.airport'
-    );
+    let landmarkData;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('gpt')) {
+      const locationData = await getLocationDetails(lat, lon);
+      landmarkData = await getLandmarksWithGPT(
+        locationData,
+        lat,
+        lon,
+        100,
+        i18n.lang.preferLocale,
+        'landmarks.airport'
+      );
+    } else {
+      const filterType = {
+        includedPrimaryTypes: ['airport', 'international_airport'],
+        rankPreference: 'DISTANCE',
+      };
+      landmarkData = await PlaceNearbySearch(
+        lat,
+        lon,
+        50,
+        20,
+        i18n.lang.preferLocale,
+        filterType
+      );
+    }
+
     if (landmarkData?.landmarks?.length > 0) {
       await mapInterface.displayLandmarks(landmarkData);
     }

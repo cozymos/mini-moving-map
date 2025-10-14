@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node src/test_runner1.js",
+    "lint": "eslint . --ext .js",
+    "test": "npm run lint && node src/test_runner1.js",
     "dev": "vite --force",
     "build": "vite build",
     "preview": "vite preview"
