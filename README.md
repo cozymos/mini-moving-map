@@ -100,11 +100,11 @@ npm run dev
 - Settings are stored in `localStorage` under `APP_SETTINGS`.
 - In Chrome, view them under DevTools → Application → Local Storage; landmark caches use keys starting with `landmark_`.
 
-**Start server proxy for MSFS "moving map**
+**Start server proxy for MSFS "moving map"**
 
 - Install Python with UV and dependencies (see `pyproject.toml`)
 - Relies on the [Python‑SimConnect](https://github.com/odwdinc/Python-SimConnect) library
-- Run it alongside with MSFS on the same PC
+- Install and run it alongside with MSFS on the same PC
 
 ```bash
 uv pip install .

@@ -53,11 +53,11 @@ function error(message) {
 
 // Configuration loading
 async function loadConfig() {
+  const { getConfig, setConfig } = await import('./utils.js');
   let config = null;
   try {
     if (isBrowser) {
       // Browser environment - call getConfig
-      const { getConfig } = await import('./utils.js');
       config = await getConfig();
     } else if (isNode) {
       // Node.js environment
@@ -86,6 +86,7 @@ async function loadConfig() {
           ],
         },
       };
+      setConfig(config);
     }
     return config;
   } catch (error) {

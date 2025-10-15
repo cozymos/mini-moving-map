@@ -36,6 +36,10 @@ export async function getConfig() {
   }
 }
 
+export function setConfig(config) {
+  CONFIG_CACHE = config;
+}
+
 // Function to get and parse prompts from prompts.json
 export async function getPromptinJSON(promptName, variables = {}) {
   try {
