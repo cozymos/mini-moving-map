@@ -4,6 +4,7 @@ A minimalist Google Maps application with AI-powered landmark discovery and 3D e
 
 ## Features
 
+- **New addition**: Search Nearby airports, Search Internet Radio stations
 - **Moving Map**: MSFS (Microsoft Flight Simulator) integration for aircraft marker tracking effect
 - **Landmark Discovery**: Google Places nearby search + OpenAI landmark query + Wikipedia images
 - **Location Search**: Google Places text search + OpenAI location query + User Geolocation
@@ -127,3 +128,11 @@ python server.py
 - Built-in test mode with mock data from config.json, skipping API calls
 - Runnable on both browser console and Node.js CLI via `npm test`
 - Append `?test=true` to the URL to auto-run tests on-browser
+
+### Q&A
+You can ask a LLM to read this source code and answer most questions about this project.  For example, try pasting these prompts directly into ChatGPT:
+- In the GitHub public repo `cozymos/mini-moving-map`, can you show me how to install and run it on the same PC that runs MSFS, starting with step-by-step how to generate a Google API key.
+- The README of cozymos/mini-moving-map is too complex.  Please describe, in simple steps in plain language, how a non-technical person can open and use the app on an Oculus headset.  Ask me questions to help fill gaps.
+- Review the source code of https://github.com/cozymos/mini-moving-map — is it safe to enter my OpenAI API key in the browser?  Does the repo send my API keys anywhere?
+- Look into the codebase of cozymos/mini-moving-map to find out what does search_stations() do?  Why doesn’t my radio stream start when pressing Play?  Can you make it open a station automatically when loading the app?
+
