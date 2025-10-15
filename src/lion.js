@@ -442,14 +442,14 @@ export function testI18n() {
 }
 
 function getLanguageSetting() {
-  const preferLocale = navigator?.language ?? FALLBACK_LANGUAGE;
+  const preferLocale = globalThis?.navigator?.language ?? FALLBACK_LANGUAGE;
 
   // Extract language-only code (e.g., 'en-US' -> 'en')
   const preferLangCode = preferLocale.split('-')[0].toLowerCase();
 
   // Preferred list of locales, for multi-lingual users
   const allLangs =
-    navigator && navigator.languages?.length > 0
+    globalThis && globalThis.navigator && navigator.languages?.length > 0
       ? navigator.languages
       : [preferLocale];
 
