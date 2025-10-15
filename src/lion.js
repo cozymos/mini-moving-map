@@ -299,12 +299,15 @@ class I18n {
 export const i18n = new I18n();
 
 export async function initi18n() {
-  // testI18n();
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('lion')) {
+    console.debug('locale settings:', testI18n());
+  }
   i18n.TM = JSON.parse(localStorage.getItem(LOCAL_TM)) || {};
   const source_file = await i18n.loadLocale();
   if (source_file) i18n.updateTM(source_file);
 
-  const locale = new URLSearchParams(window.location.search).get('locale');
+  const locale = urlParams.get('locale');
   if (isValidLocale(locale)) i18n.userLocale = locale;
 }
 
@@ -349,7 +352,7 @@ export function testI18n() {
   mock.translations[FALLBACK_LANGUAGE] = mockSrc;
 
   let tgt = mock.t('hello', { name: 'World' });
-  console.log('L10n test 1: ', tgt);
+  console.debug('L10n test 1: ', tgt);
   console.assert(tgt === 'Hello, World!', 'Placeholder failed');
 
   mock.updateTM(mockSrc, mockTgt, 'zh');
@@ -431,9 +434,9 @@ export function testI18n() {
   
   mock.updateTM(original_json, translated_json, 'zh');
   missing = mock.lookupTM('zh', modified_json);
-  console.log('Missing:', JSON.stringify(missing, null, 2));
+  console.debug('Missing:', JSON.stringify(missing, null, 2));
   exported = mock.exportTM('zh', partial_json);
-  console.log('Exported:', JSON.stringify(exported, null, 2));
+  console.debug('Exported:', JSON.stringify(exported, null, 2));
   */
   return mock.lang;
 }
