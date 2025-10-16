@@ -109,7 +109,7 @@ export async function displayLandmarks(landmark_data) {
       const markerView = new AdvancedMarkerElement({
         position: position,
         map: map,
-        title: placeName,
+        // title: placeName,
         content: createMarkerElement(placeName),
       });
 
@@ -283,9 +283,8 @@ export function create3DMapOverlay(lat, lng, placeName) {
       console.log(`3D Map for ${placeName} at (${lat}, ${lng})`);
 
       // Import required classes for 3D Maps with mode support
-      const { Map3DElement, MapMode } = await google.maps.importLibrary(
-        'maps3d'
-      );
+      const { Map3DElement, MapMode } =
+        await google.maps.importLibrary('maps3d');
 
       // Clear container and ensure proper dimensions first
       // mapContainer.innerHTML = '';
@@ -389,7 +388,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
         setTooltip(aircraftButton, 'tooltips.teleport_to_aircraft');
         aircraftButton.style.position = 'absolute';
         aircraftButton.style.top = '10px';
-        aircraftButton.style.right = '90px';
+        aircraftButton.style.right = '50px';
         aircraftButton.style.zIndex = '1000';
 
         // Add click handler for one-time sync with aircraft position

@@ -136,3 +136,7 @@ You can ask a LLM to read this source code and answer most questions about this 
 - Review the source code of https://github.com/cozymos/mini-moving-map — is it safe to enter my OpenAI API key in the browser?  Does the repo send my API keys anywhere?
 - Look into the codebase of cozymos/mini-moving-map to find out what does search_stations() do?  Why doesn’t my radio stream start when pressing Play?  Can you make it open a station automatically when loading the app?
 
+## Screenshots
+
+![Screenshot 1](public/screenshot1.png)
+![Screenshot 2](public/screenshot2.png)

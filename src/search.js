@@ -460,12 +460,14 @@ export async function searchAirport() {
 
 export async function openInternetRadio() {
   try {
-    const center = mapInterface.getMapCenter(map);
-    const locationData = await getLocationDetails(center.lat, center.lng);
+    const { lat, lng } = mapInterface.getMapCenter(map);
+    const locationData = await getLocationDetails(lat, lng);
+    const config = await getConfig();
+
     const params = new URLSearchParams({
       city: locationData.city,
       countrycode: locationData.countryCode,
-      // limit: 10,
+      limit: config?.defaults?.radio_limit || 40,
     });
     if (locationData.state) params.set('state', locationData.state);
 

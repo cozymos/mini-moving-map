@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -20,8 +20,13 @@
         margin: 0;
         background: var(--bg);
         color: var(--fg);
-        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto,
-          'Helvetica Neue', Arial;
+        font:
+          14px/1.4 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          'Helvetica Neue',
+          Arial;
       }
       .wrap {
         max-width: 800px;
@@ -84,7 +89,9 @@
         cursor: pointer;
         display: grid;
         gap: 4px;
-        transition: background 0.2s, box-shadow 0.2s;
+        transition:
+          background 0.2s,
+          box-shadow 0.2s;
       }
       #playlist li:hover {
         background: var(--hover);
@@ -323,7 +330,7 @@
       const state = qs.get('state') || '';
       const country = qs.get('country') || '';
       const countrycode = qs.get('countrycode') || country;
-      const limit = parseInt(qs.get('limit') || '20', 10) || 20;
+      const limit = parseInt(qs.get('limit') || '50', 10) || 50;
 
       const queryEl = document.getElementById('query');
       const statusEl = document.getElementById('status');

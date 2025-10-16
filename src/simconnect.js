@@ -225,13 +225,14 @@ export async function toggleAircraftTracking() {
 }
 
 async function serverAvailable() {
-  const flag = window.APP_CONFIG?.SimConnectServerAvailable;
+  const flag = window.APP_CONFIG?.pingSimConnectServer;
   if (flag || (flag !== false && import.meta.env?.DEV)) {
     const aircraftData = await fetchAircraftData();
     return aircraftData && aircraftData.connected !== false;
   }
 
-  return false;
+  // enable if explicitly set to false, skipping ping-check
+  return flag === false;
 }
 
 /**

@@ -130,24 +130,22 @@ export async function getLocationCoord(locationName) {
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${getGoogleMapsApiKey()}`
     );
-
     if (!response.ok) {
-      throw new Error('Failed to fetch location coordinates');
+      throw new Error(`Failed to fetch: ${response.statusText}`);
     }
 
     const data = await response.json();
-
     if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      throw new Error('Location not found');
+      console.warn(`Location not found: ${locationName}`);
+      return {};
     }
 
     const coords = data.results[0].geometry.location;
     const lat = parseFloat(coords.lat);
     const lon = parseFloat(coords.lng !== undefined ? coords.lng : coords.lon);
-
     return { lat, lon };
   } catch (error) {
-    console.error(locationName, error);
+    console.error(`Error getting coordinates for: ${locationName}`, error);
   }
 }
 

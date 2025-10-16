@@ -9,7 +9,10 @@
     },
     "search_radius": 15,
     "zoom_level": 12,
-    "tileLayer": "googleMaps"
+    "tileLayer": "googleMaps",
+    "openai_model": "gpt-4.1-nano",
+    "openai_temperature": 0.1,
+    "radio_limit": 30
   },
   "test_mode": {
     "test_landmarks": [

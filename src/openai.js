@@ -4,6 +4,13 @@ import { getLocationCoord } from './gmap.js';
 import { isTestMode, getOpenaiApiKey } from './interfaces.js';
 import { i18n } from './lion.js';
 
+async function getModelConfig() {
+  const config = await getConfig();
+  const model = config?.defaults?.openai_model || 'gpt-4.1-nano';
+  const temperature = config?.defaults?.openai_temperature || 0.1;
+  return { model, temperature };
+}
+
 // Implement a hydrid '3-3-3' Multi-Source Aggregation Cache:
 // 1. show [first 3] from 10x list {places_a}, which is popularity-based
 // 2. prompt LLM to pick [top 3] from places_a
@@ -44,11 +51,16 @@ export async function selectLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const model = 'gpt-4.1-nano';
+    const { model, temperature } = await getModelConfig();
     console.info(
-      `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${model} in ${locale}`
+      `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${model} (t=${temperature}) in ${locale}`
     );
-    let landmarks_json = await callOpenAI(model, systemMsg, prompt);
+    let landmarks_json = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt
+    );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
       throw new Error(
@@ -151,11 +163,16 @@ export async function getLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const model = 'gpt-4o-mini';
+    const { model, temperature } = await getModelConfig();
     console.info(
       `Getting landmarks in ${locale} from ${model} near ${locationData.locationName} within ${radius_km}km`
     );
-    let landmarks_json = await callOpenAI(model, systemMsg, prompt);
+    let landmarks_json = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt
+    );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
       throw new Error(
@@ -239,9 +256,9 @@ export async function queryLocationWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    // console.debug('Prompting:', prompt.slice(0, 100));
-    let model = 'gpt-4.1-mini';
-    const loc_data = await callOpenAI(model, systemMsg, prompt);
+    const { model, temperature } = await getModelConfig();
+    // console.debug('Prompting by ${model} (t=${temperature}):', prompt.slice(0, 100));
+    const loc_data = await callOpenAI(model, temperature, systemMsg, prompt);
     return { location: query, landmarks: [loc_data] };
   } catch (error) {
     console.error('Error getting landmarks:', error);
@@ -266,10 +283,11 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
       throw new Error('Failed to load prompt templates');
     }
 
-    // console.debug('Prompting:', prompt.slice(0, 100));
-    let model = 'gpt-4.1-mini';
-    console.info(`🌐 Auto translating ${srcLocale} ➜ ${tgtLocale} by ${model}`);
-    const tgtJSON = await callOpenAI(model, systemMsg, prompt);
+    const { model, temperature } = await getModelConfig();
+    console.info(
+      `🌐 Auto translating ${srcLocale} ➜ ${tgtLocale} by ${model} (t=${temperature})`
+    );
+    const tgtJSON = await callOpenAI(model, temperature, systemMsg, prompt);
     return tgtJSON;
   } catch (error) {
     console.warn('Failed in auto translation:', error);
@@ -278,7 +296,7 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
 }
 
 // Helper to call OpenAI with system message and prompt
-async function callOpenAI(model, systemMsg, prompt) {
+async function callOpenAI(model, temperature, systemMsg, prompt) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -287,6 +305,7 @@ async function callOpenAI(model, systemMsg, prompt) {
     },
     body: JSON.stringify({
       model,
+      temperature,
       messages: [
         { role: 'system', content: systemMsg },
         { role: 'user', content: prompt },

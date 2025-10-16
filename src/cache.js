@@ -114,7 +114,7 @@ export function enableLandmarkCache() {
   try {
     const CACHE_TTL_HOURS = window.APP_CONFIG?.CACHE_TTL_HOURS ?? 48;
     const CACHE_TTL_MS = CACHE_TTL_HOURS * 60 * 60 * 1000;
-    
+
     const keys = Object.keys(localStorage);
     const cacheKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX));
     let totalSize = 0;

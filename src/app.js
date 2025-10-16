@@ -242,9 +242,8 @@ async function markUserLocation() {
   try {
     const targetLocation = await getUserLocation();
     if (targetLocation) {
-      const { AdvancedMarkerElement } = await google.maps.importLibrary(
-        'marker'
-      );
+      const { AdvancedMarkerElement } =
+        await google.maps.importLibrary('marker');
       new AdvancedMarkerElement({
         position: targetLocation,
         map: map,

@@ -12,7 +12,7 @@ import { translateWithGPT } from './openai.js';
 import { fetchJSON } from './utils.js';
 
 const FALLBACK_LANGUAGE = 'en';
-const LOCAL_TM = 'LOCAL_TM';
+const LOCAL_TM_KEY = 'LOCAL_TM';
 
 class I18n {
   constructor() {
@@ -303,7 +303,7 @@ export async function initi18n() {
   if (urlParams.has('lion')) {
     console.debug('locale settings:', testI18n());
   }
-  i18n.TM = JSON.parse(localStorage.getItem(LOCAL_TM)) || {};
+  i18n.TM = JSON.parse(localStorage.getItem(LOCAL_TM_KEY)) || {};
   const source_file = await i18n.loadLocale();
   if (source_file) i18n.updateTM(source_file);
 
@@ -325,7 +325,7 @@ export async function updateTranslation() {
   }
 
   if (updated) {
-    localStorage.setItem(LOCAL_TM, JSON.stringify(i18n.TM));
+    localStorage.setItem(LOCAL_TM_KEY, JSON.stringify(i18n.TM));
     console.debug('TM records:', i18n.TM);
   }
   console.debug('res-bundles: ', i18n.translations);
