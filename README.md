@@ -138,5 +138,5 @@ You can ask a LLM to read this source code and answer most questions about this 
 
 ## Screenshots
 
-![Screenshot 1](public/screenshot1.png)
-![Screenshot 2](public/screenshot2.png)
+![Screenshot 1](public/Screenshot1.png)
+![Screenshot 2](public/Screenshot2.png)
