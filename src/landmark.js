@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import { getWikiImageURL } from './services.js';
+import { getWikiImageURL } from './wiki.js';
 import { validateCoords, escapeHTML } from './utils.js';
 import { mapInterface } from './interfaces.js';
 import { getLastKnownPosition, fetchAircraftData } from './simconnect.js';

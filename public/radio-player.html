@@ -318,6 +318,7 @@
           }
         } catch (_) {}
       }
+
       function saveConfig() {
         try {
           localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
@@ -331,6 +332,7 @@
       const country = qs.get('country') || '';
       const countrycode = qs.get('countrycode') || country;
       const limit = parseInt(qs.get('limit') || '50', 10) || 50;
+      const autoplay = qs.has('autoplay');
 
       const queryEl = document.getElementById('query');
       const statusEl = document.getElementById('status');
@@ -397,19 +399,28 @@
         const s = stations[current];
         const suffix = audio.paused ? '' : ' 　🔊';
         nowPlayingEl.textContent = `${s.name}${suffix}`;
+        updateUrlStation(s);  // sync URL to selection
       }
+
       const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
       function findByName(list, name) {
         const t = norm(name);
         if (!t) return -1;
         return list.findIndex((st) => norm(st.name) === t);
       }
+
       /* Keep URL’s station param in sync with current selection */
       function updateUrlStation(st) {
         const url = new URL(window.location.href);
         const sp = url.searchParams;
         // preserve city, countrycode, optional state; update station only
         sp.set('station', st.name);
+        // add/remove autoplay flag based on whether the current station is actually playing
+        if (!audio.paused) {
+          sp.set('autoplay', '1');
+        } else {
+          sp.delete('autoplay');
+        }
         url.search = sp.toString();
         history.replaceState(null, '', url.toString());
         document.title = `${st.name} [${st.location.countrycode}] - Mini Radio Player`;
@@ -422,15 +433,16 @@
         const myId = switchId;
         current = index;
         highlight(current);
-        updateNowPlaying();
-        updateUrlStation(stations[current]); // sync URL to selection
         setStatus('Connecting…');
         try {
           audio.pause();
           audio.src = stations[current].streamUrl;
           await audio.play();
           if (myId !== switchId) return;
-          setStatus('');
+          updateNowPlaying();
+          setStatus(
+            `Loaded ${stations.length} stations.  Keyboard shortcuts: ←/→ . Space . ↑/↓ .`
+          );
         } catch (e) {
           if (myId !== switchId) return;
           if (
@@ -450,18 +462,20 @@
         if (!stations.length) return;
         playIndex(current <= 0 ? stations.length - 1 : current - 1);
       }
+
       function next() {
         if (!stations.length) return;
         playIndex((current + 1) % stations.length);
       }
+
       async function togglePlayPause() {
         if (!stations.length) return;
         if (current < 0) current = 0;
         if (!audio.src) audio.src = stations[current].streamUrl;
+        setStatus('');
         if (audio.paused) {
           try {
             await audio.play();
-            setStatus('');
           } catch {
             setStatus('Play failed.');
           }
@@ -503,7 +517,6 @@
 
       /* Persist last played station name whenever playback starts */
       audio.addEventListener('play', () => {
-        setStatus('');
         if (stations[current]) {
           config.lastName = stations[current].name;
           saveConfig();
@@ -540,20 +553,20 @@
               .join(', ');
 
             li.innerHTML = `
-              <div class="station-row">
-                <div class="station-name">${st.name}</div>
-                ${loc ? `<div class="station-loc">${loc}</div>` : ''}
-              </div>
-              ${
-                st.tags
-                  ? `<div class="station-tags">${st.tags}${
-                      st.location.language
-                        ? ` — ${st.location.language} (${st.location.languagecodes})`
+                    <div class="station-row">
+                      <div class="station-name">${st.name}</div>
+                      ${loc ? `<div class="station-loc">${loc}</div>` : ''}
+                    </div>
+                    ${
+                      st.tags
+                        ? `<div class="station-tags">${st.tags}${
+                            st.location.language
+                              ? ` — ${st.location.language} (${st.location.languagecodes})`
+                              : ''
+                          }</div>`
                         : ''
-                    }</div>`
-                  : ''
-              }
-            `;
+                    }
+                  `;
             li.onclick = () => playIndex(idx);
             playlistEl.appendChild(li);
           });
@@ -569,14 +582,7 @@
             startIndex = idx >= 0 ? idx : 0;
           }
 
-          current = startIndex;
-          highlight(current);
-          updateNowPlaying();
-          audio.src = stations[current].streamUrl; // preload without autoplay
-          updateUrlStation(stations[current]); // ensure URL reflects actual selection
-          setStatus(
-            `Loaded ${stations.length} stations.  Keyboard shortcuts: ←/→ . Space . ↑/↓ .`
-          );
+          if (autoplay) playIndex(startIndex);
         } catch (err) {
           console.error(err);
           setStatus('Search failed. Check network or query.');

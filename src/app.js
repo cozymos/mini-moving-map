@@ -2,7 +2,7 @@
 import {
   initSearch,
   searchLandmarks,
-  getUserLocation,
+  showUserLocation,
   searchAirport,
   openInternetRadio,
 } from './search.js';
@@ -18,7 +18,7 @@ import {
 import { mapInterface, getGoogleMapsApiKey } from './interfaces.js';
 import { settingDialog } from './components.js';
 import { initSimConnect, toggleAircraftTracking } from './simconnect.js';
-import { i18n, initi18n, updateTranslation } from './lion.js';
+import { i18n, initi18n, updateTranslation, getGlobeEmoji } from './lion.js';
 
 const translationMap = {
   // mapping DOM selectors to translation keys
@@ -32,7 +32,6 @@ const translationMap = {
 
 // DOM Elements
 const mapElement = document.getElementById('map');
-const myLocationButton = document.getElementById('my-location');
 const searchLandmarksButton = document.getElementById('search-landmarks');
 const aircraftTrackingButton = document.getElementById('aircraft-tracking');
 const settingsButton = document.getElementById('settings-button');
@@ -179,11 +178,6 @@ document.addEventListener('click', () => {
  */
 async function setupCustomControl() {
   // add each button into gmap DOM structure, attaching click listeners
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(myLocationButton);
-  myLocationButton.addEventListener('click', async () => {
-    await markUserLocation();
-  });
-
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
   moreButton.addEventListener('click', (ev) => {
     ev.stopPropagation(); // Prevent click bubbling
@@ -214,14 +208,11 @@ async function setupCustomControl() {
   if (i18n.lang.secondLocale) {
     map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(localeButton);
     localeButton.addEventListener('click', async () => {
-      if (i18n.userLocale === i18n.lang.preferLocale) {
-        i18n.userLocale = i18n.lang.secondLocale;
-        localeButton.textContent = '🌏';
-      } else {
-        i18n.userLocale = i18n.lang.preferLocale;
-        localeButton.textContent = '🌎';
-      }
-      // await updateTranslation();
+      i18n.userLocale =
+        i18n.userLocale === i18n.lang.preferLocale
+          ? i18n.lang.secondLocale
+          : i18n.lang.preferLocale;
+      localeButton.textContent = getGlobeEmoji(i18n.userLocale);
       await applyTranslations();
     });
   }
@@ -240,7 +231,7 @@ function createUserLocationMarker() {
 
 async function markUserLocation() {
   try {
-    const targetLocation = await getUserLocation();
+    const targetLocation = await showUserLocation();
     if (targetLocation) {
       const { AdvancedMarkerElement } =
         await google.maps.importLibrary('marker');
@@ -327,6 +318,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load Google Maps API
   loadGoogleMapsAPI();
+
+  addMoreOption('app.user_location', async () => {
+    await markUserLocation();
+  });
 
   addMoreOption('app.airport_menu', async () => {
     await searchAirport();

@@ -1,4 +1,4 @@
-export { landmarkService } from './backend.js';
+export { landmarkService } from './local-services.js';
 import { getSettings, handleError } from './utils.js';
 
 export function isTestMode() {

@@ -20,10 +20,9 @@ import {
 } from './utils.js';
 import { landmarkService, mapInterface, isTestMode } from './interfaces.js';
 import { cachingNotification } from './components.js';
-import { i18n, setTooltip } from './lion.js';
+import { i18n } from './lion.js';
 
 // DOM Elements
-const myLocationButton = document.getElementById('my-location');
 const searchSideBar = document.getElementById('search-bar-container');
 const searchInput = document.getElementById('search-input');
 const searchHistory = document.getElementById('search-history');
@@ -347,8 +346,6 @@ function getCurrentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator?.geolocation) {
       handleError(i18n.t('errors.geolocation_not_supported'));
-      myLocationButton.disabled = true;
-      setTooltip(myLocationButton, 'errors.geolocation_not_supported');
       reject(new Error('Geolocation not supported'));
       return;
     }
@@ -373,43 +370,15 @@ function getCurrentPosition() {
   });
 }
 
-import { getLastKnownPosition } from './simconnect.js';
-
 /**
- * Get the user's current location and toggle between user location and last center
+ * Pan to user's current location
  */
-export async function getUserLocation() {
-  let userLocation, targetLocation;
-  let shouldShowMarker = false;
-
-  // Step 1: Get current center and user location
-  const currentCenter = mapInterface.getMapCenter(map);
-  const aircraftPosition = getLastKnownPosition();
-  if (aircraftPosition) userLocation = aircraftPosition;
-  else userLocation = await getCurrentPosition();
-
-  // Step 2: Check if at user location
-  const isAtUserLocation =
-    Math.abs(currentCenter.lat - userLocation.lat) < 0.1 &&
-    Math.abs(currentCenter.lng - userLocation.lng) < 0.1;
-
-  // Step 3: Determine target location
-  if (isAtUserLocation && lastCenter) {
-    // At user location → go to last center
-    targetLocation = lastCenter;
-  } else {
-    // Not at user location → save current as last center and go to user location
-    lastCenter = currentCenter;
-    targetLocation = userLocation;
-    shouldShowMarker = !aircraftPosition;
-  }
-
-  // Step 4: Pan to coordinate and show marker if needed
-  mapInterface.mapPanTo(targetLocation.lat, targetLocation.lng);
-
-  // Update URL parameters with current position
-  updateUrlParameters();
-  return shouldShowMarker ? targetLocation : null;
+export async function showUserLocation() {
+  lastCenter = mapInterface.getMapCenter(map);
+  const userLocation = await getCurrentPosition();
+  mapInterface.mapPanTo(userLocation.lat, userLocation.lng, 0);
+  updateUrlParameters(true);
+  return userLocation;
 }
 
 export async function searchAirport() {

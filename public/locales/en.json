@@ -1,8 +1,9 @@
 {
   "app": {
     "loading_text": "Loading map…",
-    "caching_text": "Finding landmarks…",
+    "caching_text": "AI refining landmarks…",
     "search_placeholder": "Search location…",
+    "user_location": "Find my location",
     "airport_menu": "Search Airports",
     "radio_menu": "Search Radio Stations"
   },
@@ -34,7 +35,6 @@
     }
   },
   "tooltips": {
-    "my_location": "My Location",
     "search_location": "Search Location",
     "search_landmarks": "Search Landmarks",
     "settings": "Settings Dialog",

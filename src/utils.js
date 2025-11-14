@@ -40,40 +40,6 @@ export function setConfig(config) {
   CONFIG_CACHE = config;
 }
 
-// Function to get and parse prompts from prompts.json
-export async function getPromptinJSON(promptName, variables = {}) {
-  try {
-    // Fetch the prompts.json file
-    const response = await fetchJSON('/prompts.json');
-    if (!response.ok) {
-      throw new Error(`Failed to load prompts: ${response.status}`);
-    }
-    const prompts = await response.json();
-    if (!prompts[promptName]) {
-      throw new Error(`Prompt "${promptName}" not found`);
-    }
-
-    // Get the prompt templates
-    const promptTemplates = prompts[promptName];
-
-    // Replace variables in the templates
-    const processedPrompt = {};
-    for (const key in promptTemplates) {
-      let text = promptTemplates[key];
-      // Replace each variable in the template
-      for (const varName in variables) {
-        const regex = new RegExp(`\\{\\{${varName}\\}\\}`, 'g');
-        text = text.replace(regex, variables[varName]);
-      }
-      processedPrompt[key] = text;
-    }
-
-    return processedPrompt;
-  } catch (error) {
-    console.error('Error loading prompt:', error);
-  }
-}
-
 export function fetchJSON(path) {
   const base_url = import.meta.env?.BASE_URL || '/';
   path = path.replace(/^\/+/, '');

@@ -177,7 +177,7 @@ async function runAllTests() {
   });
 
   log('Testing get_landmark_data()');
-  const { landmarkService } = await import('./backend.js');
+  const { landmarkService } = await import('./local-services.js');
   const backendData = await landmarkService.get_landmark_data(
     default_lat,
     default_lon
@@ -189,7 +189,7 @@ async function runAllTests() {
   log('✅ get_landmark_data passed', { count: backendData.landmarks.length });
 
   log('Testing getWikiImageURL()');
-  const { getWikiImageURL } = await import('./services.js');
+  const { getWikiImageURL } = await import('./wiki.js');
   const imageUrl = await getWikiImageURL(
     config?.test_mode?.test_landmarks[0].name
   );
