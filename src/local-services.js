@@ -3,6 +3,7 @@ import {
   getLandmarksWithGPT,
   queryLocationWithGPT,
 } from './openai.js';
+import { getLandmarksWithGemini, queryLocationWithGemini } from './gemini.js';
 import {
   getLocationDetails,
   PlaceNearbySearch,
@@ -38,7 +39,17 @@ class LandmarkService {
     if (landmarkData?.landmarks?.length > 0) return landmarkData;
 
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('gmp')) {
+
+    // Check URL params for specific provider overrides
+    if (urlParams.has('gem')) {
+      landmarkData = await getLandmarksWithGemini(
+        locationData,
+        lat,
+        lon,
+        radius_km,
+        locale
+      );
+    } else if (urlParams.has('gmp')) {
       landmarkData = await PlaceNearbySearch(lat, lon, radius_km, 10, locale);
     } else if (urlParams.has('gpt')) {
       landmarkData = await getLandmarksWithGPT(
@@ -114,7 +125,10 @@ class LandmarkService {
 
     let locData = null;
     const urlParams = new URLSearchParams(window.location.search);
-    if (!urlParams.has('gmp') && (use_gpt || urlParams.has('gpt'))) {
+
+    if (urlParams.has('gem')) {
+      locData = await queryLocationWithGemini(query, locale, lat, lon);
+    } else if (!urlParams.has('gmp') && (use_gpt || urlParams.has('gpt'))) {
       locData = await queryLocationWithGPT(query, locale);
     } else {
       locData = await PlaceTextSearch(query, locale);

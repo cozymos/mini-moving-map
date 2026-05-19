@@ -1,11 +1,13 @@
 {
   "app": {
-    "loading_text": "Loading map…",
-    "caching_text": "AI refining landmarks…",
+    "loading_text": "Loading …",
+    "finding_text": "AI refining landmarks…",
     "search_placeholder": "Search location…",
     "user_location": "Find my location",
     "airport_menu": "Search Airports",
-    "radio_menu": "Search Radio Stations"
+    "radio_menu": "Search Radio Stations",
+    "show_street_view": "Show Street View",
+    "show_3d_aerial": "Show 3D Aerial"
   },
   "Settings": {
     "GOOGLE_MAPS_API_KEY": "Google Maps API Key",
@@ -27,6 +29,7 @@
     }
   },
   "landmark": {
+    "aerial_view": "Aerial View",
     "overlay": {
       "load_failed_title": "3D Map Failed to Load",
       "load_failed_description": "The Google 3D Map view could not be initialized.",
@@ -39,7 +42,7 @@
     "search_landmarks": "Search Landmarks",
     "settings": "Settings Dialog",
     "my_locale": "Switch Locale",
-    "close_landmarks": "Close Sidebar",
+    "close_sidebar": "Close Sidebar",
     "dismiss_caching": "Dismiss",
     "add_setting": "Add New Setting",
     "close_settings": "Close Dialog",
@@ -56,6 +59,7 @@
     "more_options": "More Options"
   },
   "errors": {
+    "map_init_failed": "Map initialization failed",
     "no_landmarks_found": "No landmarks found in this area",
     "location_not_found": "Location not found",
     "no_results": "No search results",

@@ -10,8 +10,9 @@
     "search_radius": 15,
     "zoom_level": 12,
     "tileLayer": "googleMaps",
-    "openai_model": "gpt-4.1-nano",
-    "openai_temperature": 0.1,
+    "openai_model": "gpt-5.4-nano",
+    "llm_api_base": "https://api.openai.com",
+    "openai_temperature": 0.2,
     "radio_limit": 30
   },
   "test_mode": {

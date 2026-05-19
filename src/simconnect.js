@@ -8,7 +8,7 @@ import { create3DMapOverlay } from './landmark.js';
 import { mapInterface } from './interfaces.js';
 import { validateCoords, handleError } from './utils.js';
 import { i18n, setTooltip } from './lion.js';
-import { updateUrlParameters } from './search.js';
+import { updateUrlParameters } from './utils.js';
 
 // Module state
 let map = null;
@@ -207,7 +207,7 @@ export async function toggleAircraftTracking() {
       Math.abs(currentCenter.lng - lastKnownPosition.lng) > 0.01
     ) {
       mapInterface.mapPanTo(lastKnownPosition.lat, lastKnownPosition.lng, 0);
-      updateUrlParameters(true);
+      updateUrlParameters(map, true);
       return true;
     }
   }

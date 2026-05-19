@@ -1,11 +1,53 @@
-export const SETTINGS_KEY = 'APP_SETTINGS';
+import { mapInterface } from './interfaces.js';
 
-export function getSettings() {
+export const SETTINGS_KEY = 'MAP_SETTINGS';
+const LEGACY_SETTINGS_KEY = 'APP_SETTINGS';
+export const screenWidthThreshold = 768; // The screen width below which is narrow
+export const EARTH_RADIUS_KM = 6371; // Earth's mean radius
+
+export function getSettings(requiredKey = null) {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+    let rawSettings = localStorage.getItem(SETTINGS_KEY);
+
+    // One-time migration for older saved settings.
+    if (!rawSettings) {
+      const legacySettings = localStorage.getItem(LEGACY_SETTINGS_KEY);
+      if (legacySettings) {
+        localStorage.setItem(SETTINGS_KEY, legacySettings);
+        localStorage.removeItem(LEGACY_SETTINGS_KEY);
+        rawSettings = legacySettings;
+      }
+    }
+
+    const settings = JSON.parse(rawSettings) || {};
+    let updated = false;
+
+    if (requiredKey) {
+      const keys = Array.isArray(requiredKey) ? requiredKey : [requiredKey];
+      keys.forEach((key) => {
+        if (!(key in settings)) {
+          settings[key] = '';
+          updated = true;
+        }
+      });
+    }
+
+    if (updated) {
+      setSettings(settings);
+    }
+
+    return settings;
   } catch (error) {
     console.error(`Error getting ${SETTINGS_KEY}:`, error);
     return {};
+  }
+}
+
+export function setSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error(`Error setting ${SETTINGS_KEY}:`, error);
   }
 }
 
@@ -178,6 +220,35 @@ export function parseMapParamsFromURL() {
 }
 
 /**
+ * Update the URL parameters with the current map center and zoom level
+ */
+export function updateUrlParameters(map, pushState = false) {
+  if (!map) return;
+
+  const center = mapInterface.getMapCenter(map);
+  const lat = normalizeCoordValue(center.lat);
+  const lon = normalizeCoordValue(center.lng);
+  const zoom = parseInt(map.getZoom());
+
+  // Create URL with the new parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.set('lat', lat);
+  urlParams.set('lon', lon);
+  urlParams.set('zoom', zoom);
+
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  console.debug('URL:', newUrl);
+
+  const currentState = window.history.state || {};
+  const newState = { ...currentState, lat, lon, zoom };
+
+  if (pushState) {
+    delete newState.appStart;
+    window.history.pushState(newState, '', newUrl);
+  } else window.history.replaceState(newState, '', newUrl);
+}
+
+/**
  * Calculate distance between two coordinates in kilometers
  * @param {number} lat1 - First latitude
  * @param {number} lng1 - First longitude
@@ -186,7 +257,6 @@ export function parseMapParamsFromURL() {
  * @returns {number} - Distance in kilometers
  */
 export function distance_km(lat1, lng1, lat2, lng2) {
-  const R = 6371; // Earth's radius in kilometers
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -196,7 +266,7 @@ export function distance_km(lat1, lng1, lat2, lng2) {
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return EARTH_RADIUS_KM * c;
 }
 
 /**

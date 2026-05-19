@@ -1,15 +1,15 @@
 import { landmarkService } from './interfaces.js';
-import { getSettings, SETTINGS_KEY } from './utils.js';
+import { getSettings, setSettings } from './utils.js';
 import { i18n } from './lion.js';
 
-class CachingNotification {
+class AsyncNotification {
   /**
    * Provides non-blocking UI feedback for background processing
    */
 
-  constructor() {
-    this.notification = document.getElementById('caching-notification');
-    this.dismissButton = document.getElementById('dismiss-caching');
+  constructor(notificationId, dismissButtonId) {
+    this.notification = document.getElementById(notificationId);
+    this.dismissButton = document.getElementById(dismissButtonId);
     this.isVisible = false;
     this.autoHideTimer = null;
     this.statusCheckTimer = null;
@@ -26,7 +26,7 @@ class CachingNotification {
   }
 
   /**
-   * Show caching notification for background processing
+   * Show async notification for background processing
    * @param {string} requestId - Unique identifier for the request
    */
   show(requestId = null) {
@@ -114,7 +114,7 @@ class CachingNotification {
   notifyUpdated() {
     // Dispatch a custom event that other components can listen to
     window.dispatchEvent(
-      new CustomEvent('CachingNotification_updated', {
+      new CustomEvent('AsyncNotification_updated', {
         detail: { timestamp: Date.now() },
       })
     );
@@ -144,7 +144,10 @@ class CachingNotification {
   }
 }
 
-export const cachingNotification = new CachingNotification();
+export const cachingNotification = new AsyncNotification(
+  'caching-notification',
+  'dismiss-caching'
+);
 
 class SettingDialog {
   constructor() {
@@ -154,8 +157,6 @@ class SettingDialog {
     this.closeBtn = this.dialog?.querySelector('#close-btn');
     this.statusMessage = this.dialog?.querySelector('#status-message');
 
-    // List of required API keys
-    this.requiredKeys = ['GOOGLE_MAPS_API_KEY', 'OPENAI_API_KEY'];
     this.settings = {};
     this.setupListeners();
   }
@@ -197,7 +198,7 @@ class SettingDialog {
   }
 
   save() {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+    setSettings(this.settings);
 
     if (this.statusMessage) {
       this.statusMessage.style.opacity = 1;
@@ -292,25 +293,17 @@ class SettingDialog {
     });
   }
 
-  async require() {
-    this.settings = getSettings();
+  async require(requiredKeys = []) {
+    this.settings = getSettings(requiredKeys);
 
     // Check for missing required keys
-    const missingKeys = this.requiredKeys.filter(
+    const missingKeys = requiredKeys.filter(
       (key) =>
-        !window.APP_CONFIG[key] &&
+        !window.APP_CONFIG?.[key] &&
         (!this.settings[key] || this.settings[key].trim() === '')
     );
 
     if (missingKeys.length > 0) {
-      // Add missing required keys with empty values
-      missingKeys.forEach((key) => {
-        this.settings[key] = '';
-      });
-
-      // Save the updated settings with empty values for missing keys
-      this.save();
-
       // Show the dialog with prefilled empty values
       await this.show();
     }

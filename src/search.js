@@ -4,6 +4,7 @@ import {
   PlaceNearbySearch,
 } from './gmap.js';
 import { getLandmarksWithGPT } from './openai.js';
+import { getLandmarksWithGemini } from './gemini.js';
 import {
   getCachedLandmarks,
   setCachedLandmarks,
@@ -21,14 +22,14 @@ import {
 import { landmarkService, mapInterface, isTestMode } from './interfaces.js';
 import { cachingNotification } from './components.js';
 import { i18n } from './lion.js';
+import { updateUrlParameters } from './utils.js';
 
 // DOM Elements
-const searchSideBar = document.getElementById('search-bar-container');
 const searchInput = document.getElementById('search-input');
 const searchHistory = document.getElementById('search-history');
 const searchButton = document.getElementById('search-button');
-const landmarkSidebar = document.getElementById('landmarks-sidebar');
-const landmarksList = document.getElementById('landmarks-list');
+const infoSidebar = document.getElementById('info-sidebar');
+const infoContent = document.getElementById('info-content');
 
 const default_radius = 15;
 const default_zoom = 12;
@@ -63,7 +64,7 @@ export function initSearch() {
     return;
   }
 
-  window.addEventListener('CachingNotification_updated', async () => {
+  window.addEventListener('AsyncNotification_updated', async () => {
     // Get current map center
     const currentCenter = mapInterface.getMapCenter(map);
     if (
@@ -80,7 +81,7 @@ export function initSearch() {
 export async function searchLandmarks() {
   try {
     // Clear any existing landmarks and markers
-    landmarksList.innerHTML = '';
+    infoContent.innerHTML = '';
     mapInterface.clearLandMarkers();
 
     lastCenter = mapInterface.getMapCenter(map);
@@ -139,7 +140,7 @@ export async function searchLandmarks() {
       }
 
       // Update URL parameters with current position
-      updateUrlParameters();
+      updateUrlParameters(map);
     } else handleError(i18n.t('errors.no_landmarks_found'));
   } catch (error) {
     console.error(
@@ -156,7 +157,7 @@ export async function searchLandmarks() {
     const apiUnavailable = escapeHTML(i18n.t('search.error.api_unavailable'));
     const retryButtonText = escapeHTML(i18n.t('search.error.retry_button'));
 
-    landmarksList.innerHTML = `
+    infoContent.innerHTML = `
                 <div class="landmark-item error">
                     <div class="landmark-name">${connectionTitle}</div>
                     <div class="landmark-summary">
@@ -179,7 +180,7 @@ export async function searchLandmarks() {
     }
 
     // Show landmarks panel with error
-    landmarkSidebar.classList.remove('hidden');
+    infoSidebar.classList.remove('hidden');
     mapInterface.clearLandMarkers();
   } finally {
     setLoading(false);
@@ -190,10 +191,13 @@ export async function searchLandmarks() {
  * Set up text search functionality
  */
 function setupTextSearch() {
-  searchSideBar.classList.remove('hidden');
-
   // Add click event to search button
   searchButton.addEventListener('click', () => {
+    if (searchInput.style.display === 'none') {
+      searchInput.style.display = '';
+      searchInput.focus();
+      return;
+    }
     const query = searchInput.value.trim();
     if (query) searchText(query);
   });
@@ -209,7 +213,7 @@ function setupTextSearch() {
   console.debug('Local cache enabled: ', enableLandmarkCache());
   searchInput.addEventListener('focus', (e) => {
     updateSearchHistory();
-    landmarkSidebar.classList.add('hidden');
+    infoSidebar.classList.add('hidden');
     e.target.select();
   });
 
@@ -224,6 +228,8 @@ function setupTextSearch() {
       e.preventDefault();
       searchInput.focus();
       searchInput.select(); // select all text
+    } else if (e.key === 'Escape') {
+      infoSidebar.classList.add('hidden');
     }
   });
 }
@@ -253,10 +259,9 @@ async function searchText(query) {
       return;
     }
 
-    let locData = null;
-    landmarksList.innerHTML = '';
+    infoSidebar.classList.add('hidden');
+    infoContent.innerHTML = '';
     mapInterface.clearLandMarkers();
-    landmarkSidebar.classList.add('hidden');
     setLoading(true);
 
     // Check if the query is the same as the last one
@@ -268,10 +273,12 @@ async function searchText(query) {
       if (coords && validateCoords(coords.lat, coords.lon)) {
         lastCoord = coords;
         mapInterface.mapPanTo(lastCoord.lat, lastCoord.lon);
+        updateUrlParameters(map, true);
         return;
       }
     }
 
+    let locData = null;
     if (!lastPlace) {
       // Pass 2: call Google Text Search API
       const lat = normalizeCoordValue(lastCoord?.lat);
@@ -307,36 +314,7 @@ async function searchText(query) {
     console.error(`Error searching for "${query}": ${error.message}`);
   } finally {
     setLoading(false);
-
-    if (!lastPlace && !lastLoc) {
-      // Push new position to browser history
-      updateUrlParameters(true);
-    }
   }
-}
-
-/**
- * Update the URL parameters with the current map center and zoom level
- */
-export function updateUrlParameters(pushState = false) {
-  if (!map) return;
-
-  const center = mapInterface.getMapCenter(map);
-  const lat = normalizeCoordValue(center.lat);
-  const lon = normalizeCoordValue(center.lng);
-  const zoom = parseInt(map.getZoom());
-
-  // Create URL with the new parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  urlParams.set('lat', lat);
-  urlParams.set('lon', lon);
-  urlParams.set('zoom', zoom);
-
-  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-  console.debug('URL:', newUrl);
-
-  if (pushState) window.history.pushState({ lat, lon, zoom }, '', newUrl);
-  else window.history.replaceState({ lat, lon, zoom }, '', newUrl);
 }
 
 /**
@@ -374,35 +352,46 @@ function getCurrentPosition() {
  * Pan to user's current location
  */
 export async function showUserLocation() {
+  updateUrlParameters(map, false);
   lastCenter = mapInterface.getMapCenter(map);
   const userLocation = await getCurrentPosition();
   mapInterface.mapPanTo(userLocation.lat, userLocation.lng, 0);
-  updateUrlParameters(true);
+  updateUrlParameters(map, true);
   return userLocation;
 }
 
 export async function searchAirport() {
   try {
-    landmarksList.innerHTML = '';
+    infoContent.innerHTML = '';
     mapInterface.clearLandMarkers();
     setLoading(true);
 
-    const center = mapInterface.getMapCenter(map);
-    const lat = normalizeCoordValue(center.lat);
-    const lon = normalizeCoordValue(center.lng);
-    let landmarkData;
+    lastCenter = mapInterface.getMapCenter(map);
+    const lat = normalizeCoordValue(lastCenter.lat);
+    const lon = normalizeCoordValue(lastCenter.lng);
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('gpt')) {
-      const locationData = await getLocationDetails(lat, lon);
+    const locationData = await getLocationDetails(lat, lon);
+
+    let landmarkData = null;
+    if (isTestMode()) {
+      console.log('Using test landmarks (test mode enabled)');
+      const config = await getConfig();
+      landmarkData = {
+        location: config?.defaults?.default_location?.name,
+        coordinates: [lat, lon],
+        landmarks: config?.test_mode?.test_landmarks || [],
+        cache_type: 'test_mode',
+      };
+    } else if (urlParams.has('gpt')) {
       landmarkData = await getLandmarksWithGPT(
         locationData,
         lat,
         lon,
         100,
-        i18n.lang.preferLocale,
+        i18n.userLocale,
         'landmarks.airport'
       );
-    } else {
+    } else if (urlParams.has('gmp')) {
       const filterType = {
         includedPrimaryTypes: ['airport', 'international_airport'],
         rankPreference: 'DISTANCE',
@@ -412,14 +401,24 @@ export async function searchAirport() {
         lon,
         50,
         20,
-        i18n.lang.preferLocale,
+        i18n.userLocale,
         filterType
+      );
+    } else {
+      landmarkData = await getLandmarksWithGemini(
+        locationData,
+        lat,
+        lon,
+        100,
+        i18n.userLocale,
+        'landmarks.airport'
       );
     }
 
     if (landmarkData?.landmarks?.length > 0) {
       await mapInterface.displayLandmarks(landmarkData);
     }
+    updateUrlParameters(map);
   } catch {
     handleError(i18n.t('errors.no_results'));
   } finally {

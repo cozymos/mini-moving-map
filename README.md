@@ -1,6 +1,6 @@
 # Mini Moving Map
 
-A minimalist Google Maps application with AI-powered landmark discovery and 3D exploration experience.
+A minimalist Google Maps app with AI-powered landmark discovery and 3D exploration experience.
 
 ## Features
 
@@ -27,16 +27,17 @@ A minimalist Google Maps application with AI-powered landmark discovery and 3D e
 - **OpenAI API**: LLM generated translations and landmark information
 - **Wikipedia API**: Landmark and location photos
 
-### Vanilla JavaScript Frontend with Vite
+### Vite-based SPA Frontend
 
 ```
 src/
-├── app.js          # Init Google Maps application
-├── search.js       # Location and landmark search
-├── landmark.js     # Landmark display, markers, and 3D overlays
+├── app.js          # Google Maps app based on client-side Javascript library
+├── search.js       # Location, landmark search and display
+├── landmark.js     # Landmark sidebar, markers, and 3D overlays
 ├── gmap.js         # Google Maps API wrappers
-├── openai.js       # OpenAI prompting
-├── prompts.js      # LLM Prompt templates
+├── gemini.js       # Gemini LLM grounded with Google Maps
+├── openai.js       # OpenAI LLM via OpenAI-compatible API
+├── prompts.js      # Prompting templates
 ├── lion.js         # i18n/L10n with auto-translations
 ├── cache.js        # On-browser localStorage caching
 ├── components.js   # reusable UI components
@@ -70,9 +71,9 @@ VITE_OPENAI_API_KEY=your_openai_api_key
 
 As an open-source project targeting technical users, this client-only web-app is designed to run on user's keys. The user is responsible for:
 
-1.  Creating their own Google Cloud project Maps API key (required), and OpenAI API key (optional)
+1.  Creating their own Google Cloud project Maps API key (required), and OpenAI-compatible LLM's API key (optional)
 2.  Securing their key by restricting it to their own domains (`localhost` for testing, their deployment domain for production).
-3.  The costs associated with their usage, respecting Google Maps and OpenAI terms of service.
+3.  The costs associated with their usage, respecting Google Maps terms of service.
 
 **Generate API keys**
 
@@ -86,7 +87,7 @@ As an open-source project targeting technical users, this client-only web-app is
   1.  Visit the [OpenAI dashboard](https://platform.openai.com/api-keys).
   2.  Create a new secret key and copy it for later use; it won't be shown again.
 
-**Start Vite development server**
+**Start development server**
 
 ```bash
 npm run dev
@@ -97,6 +98,7 @@ npm run dev
 - Open `http://localhost:5001` in your browser.
 - Click the gear icon (**⚙️ Settings UI**) in the bottom‑left corner.
 - Fill in `GOOGLE_MAPS_API_KEY` and `OPENAI_API_KEY`, then close to save.
+- Fill in optional `GEMINI_API_KEY` for LLM search grounded with Google Maps
 - Settings are stored in `localStorage` under `APP_SETTINGS`.
 - In Chrome, view them under DevTools → Application → Local Storage; landmark caches use keys starting with `landmark_`.
 
@@ -117,7 +119,7 @@ python server.py
 - Click **🏛️ Landmarks** to discover nearby points of interest around the map center.
 - Select a landmark card to read the AI-generated description and see a Wiki photo.
 - Click **[3D]** on landmark cards to explore with a photorealistic 3D map view.
-- Use **📍 My Location** to center the map at current geolocation per browser detection.
+- Use **⋮ > Find my location** to center the map at current geolocation per browser detection.
 - Open the gear icon (**⚙️ Settings**) to update API keys or clear stored values.
 - Use **🌐 Locale** to toggle between multiple preferred locales per browser setting.
 - Click **aircraft ✈️** icon to sync aircraft position when connected to MSFS.
@@ -127,7 +129,7 @@ python server.py
 - Frontend Test Runner - standalone test script running direct function testing
 - Built-in test mode with mock data from config.json, skipping API calls
 - Runnable on both browser console and Node.js CLI via `npm test`
-- Append `?test=true` to the URL to auto-run tests on-browser
+- Append `?test` to the URL to auto-run tests on-browser
 
 ### Q&A
 You can ask a LLM to read this source code and answer most questions about this project.  For example, try pasting these prompts directly into ChatGPT:

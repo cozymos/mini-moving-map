@@ -6,9 +6,10 @@ import { i18n } from './lion.js';
 
 async function getModelConfig() {
   const config = await getConfig();
-  const model = config?.defaults?.openai_model || 'gpt-4.1-nano';
-  const temperature = config?.defaults?.openai_temperature || 0.1;
-  return { model, temperature };
+  const model = config?.defaults?.openai_model || 'gpt-5.4-nano';
+  const temperature = config?.defaults?.openai_temperature || 1.0;
+  const llm_api = config?.defaults?.llm_api_base || 'https://api.openai.com';
+  return { model, temperature, llm_api };
 }
 
 // Implement a hydrid '3-3-3' Multi-Source Aggregation Cache:
@@ -51,7 +52,7 @@ export async function selectLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     console.info(
       `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${model} (t=${temperature}) in ${locale}`
     );
@@ -59,7 +60,8 @@ export async function selectLandmarksWithGPT(
       model,
       temperature,
       systemMsg,
-      prompt
+      prompt,
+      llm_api
     );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
@@ -98,10 +100,10 @@ export async function selectLandmarksWithGPT(
       const landmark = {
         name: landmarkName,
         local: item.local || '',
-        desc: item.description || '',
+        desc: item.desc || '',
         lat: parseFloat(landmarkLat),
         lon: parseFloat(landmarkLon),
-        loc: item.location || locationData.locationName,
+        loc: item.loc || locationData.locationName,
         type: samePlace?.type || item.type || model,
       };
 
@@ -128,7 +130,8 @@ export async function getLandmarksWithGPT(
   lon,
   radius_km = 15,
   locale = i18n.lang.preferLocale,
-  promptPath = 'landmarks.discovery'
+  promptPath = 'landmarks.discovery',
+  extraVariables = {}
 ) {
   if (isTestMode()) {
     console.log('Using test landmarks (test mode enabled)');
@@ -156,6 +159,7 @@ export async function getLandmarksWithGPT(
       lat,
       lon,
       locale,
+      ...extraVariables,
     });
 
     const systemMsg = GetSystemMessage('travel_agent');
@@ -163,7 +167,7 @@ export async function getLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     console.info(
       `Getting landmarks in ${locale} from ${model} near ${locationData.locationName} within ${radius_km}km`
     );
@@ -171,7 +175,8 @@ export async function getLandmarksWithGPT(
       model,
       temperature,
       systemMsg,
-      prompt
+      prompt,
+      llm_api
     );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
@@ -202,10 +207,10 @@ export async function getLandmarksWithGPT(
       const landmark = {
         name: landmarkName,
         local: item.local || '',
-        desc: item.description || '',
+        desc: item.desc || '',
         lat: parseFloat(landmarkLat),
         lon: parseFloat(landmarkLon),
-        loc: item.location || locationData.locationName,
+        loc: item.loc || locationData.locationName,
         type: item.type || model,
       };
 
@@ -256,9 +261,15 @@ export async function queryLocationWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     // console.debug('Prompting by ${model} (t=${temperature}):', prompt.slice(0, 100));
-    const loc_data = await callOpenAI(model, temperature, systemMsg, prompt);
+    const loc_data = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt,
+      llm_api
+    );
     return { location: query, landmarks: [loc_data] };
   } catch (error) {
     console.error('Error getting landmarks:', error);
@@ -283,11 +294,17 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     console.info(
       `🌐 Auto translating ${srcLocale} ➜ ${tgtLocale} by ${model} (t=${temperature})`
     );
-    const tgtJSON = await callOpenAI(model, temperature, systemMsg, prompt);
+    const tgtJSON = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt,
+      llm_api
+    );
     return tgtJSON;
   } catch (error) {
     console.warn('Failed in auto translation:', error);
@@ -296,8 +313,9 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
 }
 
 // Helper to call OpenAI with system message and prompt
-async function callOpenAI(model, temperature, systemMsg, prompt) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+async function callOpenAI(model, temperature, systemMsg, prompt, llm_api) {
+  const apiUrl = llm_api + '/v1/chat/completions';
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -321,7 +339,7 @@ async function callOpenAI(model, temperature, systemMsg, prompt) {
   }
 
   const data = await response.json();
-  const content = data.choices[0]?.message?.content;
+  const content = data.choices[0]?.message?.content || '';
   if (!content) {
     throw new Error('No content in OpenAI response');
   }

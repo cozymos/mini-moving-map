@@ -7,7 +7,7 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   server: {
     host: '0.0.0.0',
-    allowedHosts: ['.replit.dev', '.replit.app'],
+    allowedHosts: true,
     port: 5001,
     proxy: {
       // Proxy requests starting with '/api' backend URL

@@ -9,14 +9,20 @@
  */
 
 import { translateWithGPT } from './openai.js';
-import { fetchJSON } from './utils.js';
+import { fetchJSON, getConfig } from './utils.js';
 
 const FALLBACK_LANGUAGE = 'en';
 const LOCAL_TM_KEY = 'LOCAL_TM';
 
 class I18n {
   constructor() {
-    this.lang = getLanguageSetting();
+    // Set a temporary default, will be overwritten in initi18n
+    this.lang = {
+      preferLocale: FALLBACK_LANGUAGE,
+      preferLangCode: FALLBACK_LANGUAGE,
+      secondLocale: null,
+      secondLangCode: null,
+    };
     this.userLocale = this.lang.preferLocale;
     this.translations = {};
     this.TM = {};
@@ -214,6 +220,7 @@ class I18n {
     - target_json starts as a deep copy of source_json, to return in the same JSON structure
     - for each source string, compute msgid and look up target value under {target_locale}
     - What's ready to apply: If target found on TM, replace source value with target value
+    - to generate a res-file: console.log(JSON.stringify(i18n.exportTM('en-US'), null, 2));
    */
   exportTM(target_locale, source_json = this.translations[FALLBACK_LANGUAGE]) {
     if (!source_json || typeof source_json !== 'object')
@@ -297,31 +304,43 @@ class I18n {
 }
 
 export const i18n = new I18n();
+window.i18n = i18n;
 
 export async function initi18n() {
+  // Set the language based on config or browser settings
+  i18n.lang = await getLanguageSetting();
+  i18n.userLocale = i18n.lang.preferLocale;
+
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('lion')) {
-    console.debug('locale settings:', testI18n());
+    console.debug('locale settings:', await testI18n());
   }
   i18n.TM = JSON.parse(localStorage.getItem(LOCAL_TM_KEY)) || {};
   const source_file = await i18n.loadLocale();
   if (source_file) i18n.updateTM(source_file);
 
   const locale = urlParams.get('locale');
-  if (isValidLocale(locale)) i18n.userLocale = locale;
+  if (isValidLocale(locale)) {
+    console.debug(`Overriding locale with URL parameter: ${locale}`);
+    i18n.userLocale = locale;
+  }
 }
 
-export async function updateTranslation() {
+export async function updateTranslation(load_target_file = false) {
   let updated = false;
   if (i18n.lang.preferLangCode !== FALLBACK_LANGUAGE) {
-    updated = (await i18n.TranslateLocale(i18n.lang.preferLocale)) || updated;
+    updated =
+      (await i18n.TranslateLocale(i18n.lang.preferLocale, load_target_file)) ||
+      updated;
   }
 
   if (
     i18n.lang.secondLangCode &&
     i18n.lang.secondLangCode !== FALLBACK_LANGUAGE
   ) {
-    updated = (await i18n.TranslateLocale(i18n.lang.secondLocale)) || updated;
+    updated =
+      (await i18n.TranslateLocale(i18n.lang.secondLocale, load_target_file)) ||
+      updated;
   }
 
   if (updated) {
@@ -339,8 +358,9 @@ function isValidLocale(str) {
   return regex.test(str);
 }
 
-export function testI18n() {
+export async function testI18n() {
   const mock = new I18n();
+  mock.lang = await getLanguageSetting();
   const mockSrc = {
     hello: 'Hello, {name}!',
     nested: { example: 'The answer is {value}.' },
@@ -441,7 +461,29 @@ export function testI18n() {
   return mock.lang;
 }
 
-function getLanguageSetting() {
+async function getLanguageSetting() {
+  try {
+    const config = await getConfig();
+    const configLocale = config?.defaults?.locale;
+
+    if (configLocale && isValidLocale(configLocale)) {
+      console.debug(`Locale default from config: ${configLocale}`);
+      const preferLocale = configLocale;
+      const preferLangCode = preferLocale.split('-')[0].toLowerCase();
+      const secondLocale =
+        preferLangCode !== FALLBACK_LANGUAGE ? FALLBACK_LANGUAGE : null;
+      const secondLangCode = secondLocale ? FALLBACK_LANGUAGE : null;
+
+      return { preferLocale, preferLangCode, secondLocale, secondLangCode };
+    }
+  } catch (e) {
+    console.warn(
+      'Error reading locale from config, falling back to browser settings.',
+      e
+    );
+  }
+
+  // Auto-detect from browser if default locale is not configured
   const preferLocale = globalThis?.navigator?.language ?? FALLBACK_LANGUAGE;
 
   // Extract language-only code (e.g., 'en-US' -> 'en')
@@ -460,6 +502,7 @@ function getLanguageSetting() {
       return langCode !== preferLangCode;
     }) ?? null;
 
+  /// 2fix: Safari may not provide navigator.languages
   if (secondLocale === null) {
     secondLocale =
       preferLangCode !== FALLBACK_LANGUAGE ? FALLBACK_LANGUAGE : null;
@@ -539,6 +582,7 @@ export function setTooltip(element, key) {
 }
 
 export function getGlobeEmoji(locale) {
+  if (!locale || !locale.includes('-')) return '🌐';
   const region = locale.split('-').pop().toUpperCase();
 
   const americas = new Set([

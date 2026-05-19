@@ -14,6 +14,7 @@ export function enableTestMode(flag) {
 
 export function getGoogleMapsApiKey() {
   if (!window.APP_CONFIG?.GOOGLE_MAPS_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
     window.APP_CONFIG.GOOGLE_MAPS_API_KEY =
       import.meta.env?.VITE_GOOGLE_MAPS_API_KEY ||
       getSettings()['GOOGLE_MAPS_API_KEY'];
@@ -24,6 +25,7 @@ export function getGoogleMapsApiKey() {
 
 export function getOpenaiApiKey() {
   if (!window.APP_CONFIG?.OPENAI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
     window.APP_CONFIG.OPENAI_API_KEY =
       import.meta.env?.VITE_OPENAI_API_KEY || getSettings()['OPENAI_API_KEY'];
 
@@ -35,11 +37,22 @@ export function getOpenaiApiKey() {
   return window.APP_CONFIG.OPENAI_API_KEY;
 }
 
+export function getGeminiApiKey() {
+  if (!window.APP_CONFIG?.GEMINI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.GEMINI_API_KEY =
+      import.meta.env?.VITE_GEMINI_API_KEY || getSettings()['GEMINI_API_KEY'];
+
+    if (!window.APP_CONFIG.GEMINI_API_KEY) {
+      console.warn('Gemini API key is not configured');
+    }
+  }
+
+  return window.APP_CONFIG.GEMINI_API_KEY;
+}
+
 class MapInterface {
   constructor() {
-    console.log(
-      `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
-    );
     this.mapFns = {
       getMapCenter: () => ({ lat: 0, lng: 0 }),
       mapPanTo: () => {},
