@@ -5,7 +5,7 @@ import { defineConfig } from "eslint/config";
 export default defineConfig([
   {
     // Ignore build artifacts and dependencies
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: [".venv/", "dist/", "node_modules/"],
   },
   {
     files: ["**/*.{js,mjs,cjs}"],

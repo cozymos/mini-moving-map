@@ -5,5 +5,14 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.2",
+    "folium>=0.20.0",
+    "gunicorn>=23.0.0",
+    "openai>=1.75.0",
+    "requests>=2.32.3",
+    "replit>=4.1.1",
+    "psutil>=7.0.0",
     "simconnect>=0.4.26",
+    "streamlit>=1.45.1",
+    "streamlit-folium>=0.25.0",
+    "trafilatura>=2.0.0",
 ]

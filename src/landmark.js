@@ -2,7 +2,6 @@
 import { getWikiImageURL } from './wiki.js';
 import { validateCoords, escapeHTML, screenWidthThreshold } from './utils.js';
 import { mapInterface } from './interfaces.js';
-import { getLastKnownPosition, fetchAircraftData } from './simconnect.js';
 import { i18n, setTooltip } from './lion.js';
 
 // DOM Elements
@@ -15,9 +14,23 @@ const AERIAL_VIEW_ALTITUDE = 150; // Altitude in meters for the 3D camera
 
 // Map instance
 let map;
+let getLastKnownPositionFn = () => null;
+let fetchAircraftDataFn = async () => null;
 // Store markers for landmarks
 const landMarkers = [];
 const infoWindows = [];
+
+export function registerSimConnectFns({
+  getLastKnownPosition,
+  fetchAircraftData,
+} = {}) {
+  if (typeof getLastKnownPosition === 'function') {
+    getLastKnownPositionFn = getLastKnownPosition;
+  }
+  if (typeof fetchAircraftData === 'function') {
+    fetchAircraftDataFn = fetchAircraftData;
+  }
+}
 
 export function initLandmark() {
   // Get map instance from global scope (set in map.js)
@@ -529,7 +542,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
       mapContainer.appendChild(modeToggleButton);
       mapContainer.appendChild(animationButton);
 
-      if (getLastKnownPosition()) {
+      if (getLastKnownPositionFn()) {
         // Create aircraft tracking button
         const aircraftButton = document.createElement('button');
         aircraftButton.id = 'aircraft-tracking';
@@ -544,7 +557,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
         // Add click handler for one-time sync with aircraft position
         aircraftButton.addEventListener('click', async () => {
           try {
-            const aircraftData = await fetchAircraftData();
+            const aircraftData = await fetchAircraftDataFn();
             if (aircraftData && aircraftData.connected !== false) {
               // Calculate camera position close to aircraft
               const altitude = Math.max(100, aircraftData.altitude || 500);

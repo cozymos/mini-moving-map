@@ -65,9 +65,8 @@ export async function selectLandmarksWithGPT(
     );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
-      throw new Error(
-        `No landmarks found or invalid JSON response from ${model}`
-      );
+      console.warn(`No landmarks found or invalid JSON response from ${model}`);
+      landmarks_json = [];
     }
 
     // Process the landmarks
@@ -180,9 +179,8 @@ export async function getLandmarksWithGPT(
     );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
-      throw new Error(
-        `No landmarks found or invalid JSON response from ${model}`
-      );
+      console.warn(`No landmarks found or invalid JSON response from ${model}`);
+      landmarks_json = [];
     }
 
     const landmarks = [];

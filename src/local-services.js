@@ -21,13 +21,17 @@ class LandmarkService {
   async get_landmark_data(lat, lon, radius_km, last_result) {
     // Get country information from coordinates of current location
     const locationData = await getLocationDetails(lat, lon);
+
+    // Early exit if the location is completely unknown (e.g., middle of the ocean)
+    if (!locationData || locationData.locationName === 'Unknown Location') {
+      return { landmarks: [] };
+    }
+
     const locale = getCountryLanguage(
       locationData.country,
       locationData.countryCode
     );
-    console.debug(
-      `Which country: ${locationData.country} > userLocale: ${locale}`
-    );
+    console.debug(`Which country: ${locationData.country} > locale: ${locale}`);
 
     let landmarkData = findByLocation(
       locationData.locationName,
@@ -119,9 +123,7 @@ class LandmarkService {
       locationData.country,
       locationData.countryCode
     );
-    console.debug(
-      `Which country: ${locationData.country} > userLocale: ${locale}`
-    );
+    console.debug(`Which country: ${locationData.country} > locale: ${locale}`);
 
     let locData = null;
     const urlParams = new URLSearchParams(window.location.search);

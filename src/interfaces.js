@@ -1,5 +1,13 @@
-export { landmarkService } from './local-services.js';
+import { landmarkService as localLandmarkService } from './local-services.js';
+import { landmarkService as remoteLandmarkService } from './remote-services.js';
 import { getSettings, handleError } from './utils.js';
+
+export function getRuntimeMode() {
+  return window.APP_CONFIG?.runtime_mode || 'local';
+}
+
+export const landmarkService =
+  getRuntimeMode() === 'remote' ? remoteLandmarkService : localLandmarkService;
 
 export function isTestMode() {
   if (!window.TEST_MODE)

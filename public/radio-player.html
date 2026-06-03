@@ -246,13 +246,34 @@
     </div>
 
     <script>
-      // Fixed set of mirrors (see https://api.radio-browser.info/)
+      // Dynamically discover active mirrors via Google's DNS-over-HTTPS (DoH) API
+      // Resolves the _api._tcp.radio-browser.info SRV records.
       async function getRadioBrowserBase() {
-        const mirrors = [
-          'https://de2.api.radio-browser.info',
-          'https://fi1.api.radio-browser.info',
-        ];
-        return mirrors[Math.floor(Math.random() * mirrors.length)];
+        try {
+          const resp = await fetch('https://dns.google/resolve?name=_api._tcp.radio-browser.info&type=SRV');
+          if (!resp.ok) throw new Error('DNS DoH request failed');
+          
+          const data = await resp.json();
+          // Extract hostnames from SRV records (format: "1 1 443 de1.api.radio-browser.info.")
+          const mirrors = data.Answer.map(record => {
+            const parts = record.data.split(' ');
+            let host = parts[parts.length - 1];
+            if (host.endsWith('.')) host = host.slice(0, -1); // Trim trailing dot
+            return `https://${host}`;
+          });
+          
+          // Pick a random mirror from the active list
+          return mirrors[Math.floor(Math.random() * mirrors.length)];
+        } catch (error) {
+          console.warn("DNS discovery failed, falling back to known-good mirrors", error);
+          // Hardcoded fallback list using reliable standard mirrors just in case DoH fails
+          const fallbacks = [
+            'https://de1.api.radio-browser.info',
+            'https://nl1.api.radio-browser.info',
+            'https://at1.api.radio-browser.info'
+          ];
+          return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        }
       }
 
       // Search internet radio stations via Radio Browser API.
@@ -267,6 +288,7 @@
           countrycode: countrycode.toUpperCase(),
           limit: String(limit),
           hidebroken: 'true',
+          is_https: 'true',
           order: 'clickcount',
           reverse: 'true',
         });

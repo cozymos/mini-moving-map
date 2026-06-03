@@ -1,0 +1,11 @@
+/* Main app styling */
+.stApp {
+    font-family: "Roboto", sans-serif;
+}
+
+/* Maximize available space */
+.block-container {
+    padding-top: 3rem;
+    padding-bottom: 0;
+    max-width: 100%;
+}

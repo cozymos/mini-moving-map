@@ -6,7 +6,11 @@ import {
   searchAirport,
   openInternetRadio,
 } from './search.js';
-import { initLandmark, create3DMapOverlay } from './landmark.js';
+import {
+  initLandmark,
+  create3DMapOverlay,
+  registerSimConnectFns,
+} from './landmark.js';
 import {
   getConfig,
   parseMapParamsFromURL,
@@ -17,7 +21,12 @@ import {
 } from './utils.js';
 import { mapInterface, getGoogleMapsApiKey } from './interfaces.js';
 import { settingDialog } from './components.js';
-import { initSimConnect, toggleAircraftTracking } from './simconnect.js';
+import {
+  initSimConnect,
+  toggleAircraftTracking,
+  getLastKnownPosition,
+  fetchAircraftData,
+} from './simconnect.js';
 import { i18n, initi18n, updateTranslation, getGlobeEmoji } from './lion.js';
 
 const translationMap = {
@@ -168,6 +177,10 @@ async function loadMap() {
     getMapCenter,
     mapPanTo,
   });
+  registerSimConnectFns({
+    getLastKnownPosition,
+    fetchAircraftData,
+  });
   initSearch();
   initLandmark();
 
@@ -247,7 +260,7 @@ function loadGoogleMapsAPI() {
 
   window.initMap = initMap;
   console.log(
-    `${import.meta.env.MODE || 'server'} mode: Google Maps loading...`
+    `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
   );
   const script = document.createElement('script');
   // Use a protocol-relative URL and ensure async/defer

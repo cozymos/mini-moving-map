@@ -98,7 +98,6 @@ def start_simconnect_server(status):
     if status == "track" and (
         data_thread is None or not data_thread.is_alive()
     ):
-        # Start background thread for data updates
         stop_event = threading.Event()
         data_thread = threading.Thread(
             target=update_aircraft_data, args=(stop_event,), daemon=True

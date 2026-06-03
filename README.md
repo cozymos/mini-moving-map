@@ -4,18 +4,19 @@ A minimalist Google Maps app with AI-powered landmark discovery and 3D explorati
 
 ## Features
 
-- **New addition**: Search Nearby airports, Search Internet Radio stations
 - **Moving Map**: MSFS (Microsoft Flight Simulator) integration for aircraft marker tracking effect
-- **Landmark Discovery**: Google Places nearby search + OpenAI landmark query + Wikipedia images
-- **Location Search**: Google Places text search + OpenAI location query + User Geolocation
+- **Landmark Discovery**: Google Places nearby search + LLM landmark query + Wikipedia images
+- **Location Search**: Google Places text search + LLM location query + User Geolocation
 - **Photorealistic 3D Maps**: Google Earth-style 3D navigation + Cinematic flyovers for each landmarks
-- **World ready**: Automatically adapts LLM content and UI translation to browser's language setting
+- **World ready**: Automatically adapts content locale and UI translation to browser's language setting
 
 ### Technical Highlights
 
-- **Frontend:** Map integration, landmark visualization, location navigation, browser-side caching and test runner
-- **Backend:** Flask API connecting to MSFS via SimConnect proxy to fetch real-time aircraft telemetry
-- **LLM:** OpenAI selects landmarks from Google results, generates descriptions, adapts language to location
+- **Standalone client:** browser-side Javascript Map frontend, landmark visualization, location navigation
+- **Flask runtime:** optional Python API backend to serve landmarks with server-side LLM prompting & caching
+- **Streamlit runtime:** alternate UI that shares the same Python backend services as the Flask runtime
+- **Moving Map:** Flask API connecting to MSFS via SimConnect proxy to fetch real-time aircraft telemetry
+- **LLM:** selects landmarks from Google results, generates descriptions, adapts language to location
 - **Caching:** Proximity-based keys with coordinate rounding + location matching + TTL expiration
 - **Auto Translation:** Support JSON resource, string changes detection, local TM (Translation Memory), secondary locale for multi-lingual users
 - **Configuration:** Map defaults, test mode mock data on `config.json`, LLM prompt templates on `prompts.js`
@@ -25,19 +26,20 @@ A minimalist Google Maps app with AI-powered landmark discovery and 3D explorati
 - **Google Maps API**: Core mapping functionality with 3D support
 - **Google Places API**: Location search and nearby places discovery
 - **OpenAI API**: LLM generated translations and landmark information
+- **Gemini API**: Gemini LLM grounded with Google Maps
 - **Wikipedia API**: Landmark and location photos
 
-### Vite-based SPA Frontend
+### Vite SPA Frontend
 
 ```
 src/
-├── app.js          # Google Maps app based on client-side Javascript library
+├── app.js          # Vanilla Javascript app based on Google Maps SDK
 ├── search.js       # Location, landmark search and display
 ├── landmark.js     # Landmark sidebar, markers, and 3D overlays
 ├── gmap.js         # Google Maps API wrappers
 ├── gemini.js       # Gemini LLM grounded with Google Maps
 ├── openai.js       # OpenAI LLM via OpenAI-compatible API
-├── prompts.js      # Prompting templates
+├── prompts.js      # LLM Prompt templates used by frontend
 ├── lion.js         # i18n/L10n with auto-translations
 ├── cache.js        # On-browser localStorage caching
 ├── components.js   # reusable UI components
@@ -45,72 +47,120 @@ src/
 └── test_runner.js  # Client-side testing
 ```
 
+### Flask API Endpoints
+
+- **Landmark Search:** `/api/landmark/search` - landmark descriptions and Wiki URLs
+- **Images:** `/api/landmark/image/{landmark_name}` - cached thumbnails from Wikipedia
+- **Geocoding:** `/api/landmark/geocode` - Google Forward/reverse geocoding
+- **Configuration:** `/api/map/config` - default settings and test mode data
+- **SimConnect integration:** `/api/simconnect/<status>` - MSFS telemetry
+
+### Optional Backend
+
+```
+project/
+├── src/                     # Contains the SPA Web app
+├── index.html               # Frontend shell entrypoint (Vite root)
+├── public/                  # Static configuration files
+│   ├── config.json          # Map defaults and test fixtures
+│   ├── app-config.js        # local vs remote runtime config
+│   └── prompts.toml         # LLM Prompt templates used by backend
+├── services/
+│   ├── landmark_service.py  # Landmark discovery and data aggregation
+│   ├── location_service.py  # Location search via Places & Geocoding API
+│   ├── llm_service.py       # LLM API prompting with intelligent selection
+│   └── image_service.py     # Wikipedia image fetching and caching
+├── components/
+│   ├── endpoints.py         # Flask blueprint with REST API routes
+│   ├── cache_manager.py     # Multi-tier caches with JSON file store
+│   ├── map_viewer.py        # Folium-based interactive map rendering
+│   └── sidebar.py           # Streamlit sidebar controls and debug panel
+├── utils/
+│   ├── config_utils.py      # Config, logger and test mode utilities
+│   ├── coord_utils.py       # Coordinate parsing and manipulation
+│   └── prompt_utils.py      # TOML-based prompt template management
+├── tests/                   # Standalone test scripts
+│   └── test_runner1.py      # Quick Test runner for regression
+├── pyproject.toml           # Project metadata and dependencies
+├── app.py                   # Flask server backend entrypoint
+├── simconnect_app.py        # SimConnect-only Flask entrypoint
+├── main.py                  # Streamlit application entrypoint
+├── run.py                   # unified launcher for different runtime
+└── README.md                # This file
+```
+
 ## Getting Started
 
 **Prerequisites**
 
-- Install Node.js (https://nodejs.org/).
+- Install Node.js (https://nodejs.org/)
+- Install Python with UV and dependencies (see `pyproject.toml`)
 - Clone this repository and install dependencies (see `package.json`)
 
 ```bash
 git clone <repository-url>
 cd <my-project>
 npm install
+uv pip install .
 ```
 
-**Create environment file**
+**Start local runtime with client-only Web app**
 
-Create your own `.env` file and add your API keys for local development. Vite exposes variables prefixed with `VITE_` to the browser app
+- Start Vite with `npm run dev`
+- Open `http://localhost:5001`
+- Enter API keys through the in-app Settings UI
 
-```bash
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-VITE_OPENAI_API_KEY=your_openai_api_key
-```
+### Configure your own API Keys
 
-### "Bring your own key" approach
-
-As an open-source project targeting technical users, this client-only web-app is designed to run on user's keys. The user is responsible for:
-
-1.  Creating their own Google Cloud project Maps API key (required), and OpenAI-compatible LLM's API key (optional)
-2.  Securing their key by restricting it to their own domains (`localhost` for testing, their deployment domain for production).
-3.  The costs associated with their usage, respecting Google Maps terms of service.
-
-**Generate API keys**
-
-- **Google Maps API Key**
-
+**Google Maps API Key**
   1.  Visit the [Google Cloud Console](https://console.cloud.google.com/) → Create or select a project → Go to [Google Maps Platform](https://console.cloud.google.com/google/maps-apis) ([See Also](https://developers.google.com/maps/documentation/javascript/get-api-key)).
   2.  Enable “Map Tiles API”, “Maps JavaScript API”, “Geocoding API” and “Places API (New)” under **APIs & Services**.
   3.  Create an API key under **Keys & Credentials**. For local development restrict **HTTP referrer** to `localhost`.
 
-- **OpenAI API Key**
-  1.  Visit the [OpenAI dashboard](https://platform.openai.com/api-keys).
-  2.  Create a new secret key and copy it for later use; it won't be shown again.
+**Enter API keys in the settings dialog**
 
-**Start development server**
-
-```bash
-npm run dev
-```
-
-**Enter API keys in the app**
-
-- Open `http://localhost:5001` in your browser.
-- Click the gear icon (**⚙️ Settings UI**) in the bottom‑left corner.
+- Open `http://localhost:5001` in your browser.  Click the gear icon (⚙️).
 - Fill in `GOOGLE_MAPS_API_KEY` and `OPENAI_API_KEY`, then close to save.
 - Fill in optional `GEMINI_API_KEY` for LLM search grounded with Google Maps
-- Settings are stored in `localStorage` under `APP_SETTINGS`.
-- In Chrome, view them under DevTools → Application → Local Storage; landmark caches use keys starting with `landmark_`.
+- Settings are stored in browser local storage
+- For development, Vite exposes variables prefixed with `VITE_` to the Web app
 
-**Start server proxy for MSFS "moving map"**
+```bash
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+VITE_GEMINI_API_KEY=your_gemini_api_key
+```
+
+**Start SimConnect-only server for MSFS "moving map"**
 
 - Install Python with UV and dependencies (see `pyproject.toml`)
 - Relies on the [Python‑SimConnect](https://github.com/odwdinc/Python-SimConnect) library
-- Install and run it alongside with MSFS on the same PC
+- Install and run the SimConnect app alongside with MSFS on the same PC
+- SimConnect backend starts tracking and syncing aircraft position to the frontend
+- Vite runs on `http://localhost:5001` and proxies `/api` requests to `http://localhost:5000`
 
 ```bash
 uv pip install .
-python server.py
+python run.py --simconnect-only
+```
+
+**Start the Flask runtime**
+
+```bash
+# Expose API keys using environment variables
+export GOOGLE_MAPS_API_KEY="your-google-maps-key"
+export OPENAI_API_KEY="your-openai-key"
+export GEMINI_API_KEY="your-gemini-key"   # Optional
+
+# Flask API + source-served frontend
+python run.py --flask
+```
+
+**Start the Streamlit runtime**
+
+```bash
+# Streamlit with debug logging
+python run.py --streamlit --debug
 ```
 
 ## Usage
@@ -130,6 +180,7 @@ python server.py
 - Built-in test mode with mock data from config.json, skipping API calls
 - Runnable on both browser console and Node.js CLI via `npm test`
 - Append `?test` to the URL to auto-run tests on-browser
+- Backend test runners are under `tests/`.  Run the Python test set directly.
 
 ### Q&A
 You can ask a LLM to read this source code and answer most questions about this project.  For example, try pasting these prompts directly into ChatGPT:

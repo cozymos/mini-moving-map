@@ -18,6 +18,7 @@ import {
   setLoading,
   handleError,
   escapeHTML,
+  distance_km,
 } from './utils.js';
 import { landmarkService, mapInterface, isTestMode } from './interfaces.js';
 import { cachingNotification } from './components.js';
@@ -371,6 +372,9 @@ export async function searchAirport() {
     const lon = normalizeCoordValue(lastCenter.lng);
     const urlParams = new URLSearchParams(window.location.search);
     const locationData = await getLocationDetails(lat, lon);
+    if (!locationData || locationData.locationName === 'Unknown Location') {
+      throw new Error('Unknown location');
+    }
 
     let landmarkData = null;
     if (isTestMode()) {
@@ -417,6 +421,23 @@ export async function searchAirport() {
 
     if (landmarkData?.landmarks?.length > 0) {
       await mapInterface.displayLandmarks(landmarkData);
+
+      // Zoom out if the closest result is too far to be visible at the current zoom
+      let closestDist = Infinity;
+      for (const lm of landmarkData.landmarks) {
+        if (lm.lat != null && lm.lon != null) {
+          const dist = distance_km(lat, lon, lm.lat, lm.lon);
+          if (dist < closestDist) closestDist = dist;
+        }
+      }
+      if (closestDist < Infinity) {
+        const targetZoom = Math.floor(
+          12 + Math.log2(15 / Math.max(closestDist * 1.5, 1))
+        );
+        if (targetZoom < map.getZoom()) {
+          mapInterface.mapPanTo(lat, lon, Math.max(targetZoom, 1));
+        }
+      }
     }
     updateUrlParameters(map);
   } catch {
@@ -430,6 +451,9 @@ export async function openInternetRadio() {
   try {
     const { lat, lng } = mapInterface.getMapCenter(map);
     const locationData = await getLocationDetails(lat, lng);
+    if (!locationData || locationData.locationName === 'Unknown Location') {
+      throw new Error('Unknown location');
+    }
     const config = await getConfig();
 
     const params = new URLSearchParams({

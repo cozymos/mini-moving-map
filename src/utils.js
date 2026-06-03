@@ -320,7 +320,7 @@ function hideError() {
  * @param {string} error - The error message
  */
 export function handleError(error) {
-  console.error(error);
+  console.warn(error);
   setLoading(false);
   showError(error);
 }

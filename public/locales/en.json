@@ -67,5 +67,36 @@
     "unable_to_get_geolocation": "Unable to get Geolocation",
     "moving_map_server_unavailable": "Moving Map server not available",
     "invalid_search_query": "Please enter a valid search query"
+  },
+  "streamlit": {
+    "status": {
+      "test_mode_enabled": "TEST MODE ENABLED"
+    },
+    "sidebar": {
+      "search_location_label": "Search location",
+      "search_location_placeholder": "Search location",
+      "custom_location_label": "Custom Location",
+      "coordinates_placeholder": "Coordinates",
+      "coordinates_help": "Enter coordinates in either format:\n• Decimal Degrees (DD): 37.3349, -122.0090\n• DMS: 37°20'5.64\"N, 122°0'32.40\"W",
+      "settings_expander_title": "⚙️ Settings",
+      "enable_test_mode": "Enable Test Mode",
+      "locale_toggle_help": "Switch Streamlit locale",
+      "view_landmarks": "View {count} Landmarks"
+    },
+    "errors": {
+      "invalid_coordinates": "Invalid coordinate format. Please use DD or DMS format.",
+      "fetch_landmarks": "Error fetching landmarks: {error}"
+    },
+    "map": {
+      "layers": {
+        "landmarks": "Landmarks"
+      },
+      "popup": {
+        "unnamed_landmark": "Unnamed Landmark",
+        "no_description": "No description available",
+        "landmark_tooltip": "Landmark",
+        "radius": "{radius_km}km radius"
+      }
+    }
   }
 }
